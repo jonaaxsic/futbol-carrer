@@ -1,98 +1,105 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { usePlayerStore } from '@/state/usePlayerStore';
+import { useHydrateApp } from '@/state/useHydrateApp';
+import { AppText } from '@/presentation/components/atoms/app-text';
+import { PrimaryButton } from '@/presentation/components/atoms/button';
+import { colors, radius, spacing } from '@/presentation/theme';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+/**
+ * 1. INICIO / SPLASH (wireframe #1)
+ * Marca del juego + botón único "INICIAR SESIÓN".
+ * Sprint 1: verifica carrera en SQLite al montar; si existe, salta directo
+ * a /menu (sesión por invitado ya asumida), si no, espera el login.
+ */
+export default function SplashScreen() {
+  const { estado, error } = useHydrateApp();
+  const player = usePlayerStore((s) => s.player);
+
+  useEffect(() => {
+    if (estado === 'lista' && player) {
+      router.replace('/menu');
+    }
+  }, [estado, player]);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.hero}>
+        <View style={styles.logoBadge}>
+          <Ionicons name="football" size={64} color={colors.textPrimary} />
+        </View>
+        <AppText variant="title" uppercase color="textPrimary" style={styles.title}>
+          Modo Carrera
+        </AppText>
+        <AppText variant="heading" uppercase color="textSecondary" style={styles.subtitle}>
+          Ser una leyenda
+        </AppText>
+        {estado === 'error' && (
+          <AppText variant="caption" color="danger" style={styles.error}>
+            No se pudo cargar tu carrera ({error})
+          </AppText>
+        )}
+      </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <View style={styles.footerArea}>
+        <PrimaryButton
+          label="Iniciar sesión"
+          disabled={estado === 'cargando' || estado === 'error'}
+          onPress={() => router.push('/login')}
+        />
+        <AppText variant="caption" style={styles.version}>
+          v1.0.0
+        </AppText>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: colors.background,
   },
-  safeArea: {
+  hero: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  logoBadge: {
+    width: 128,
+    height: 128,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
   },
   title: {
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    textAlign: 'center',
+    opacity: 0.8,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  footerArea: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  version: {
+    alignSelf: 'center',
+  },
+  error: {
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
 });
