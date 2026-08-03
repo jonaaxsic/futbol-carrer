@@ -47,7 +47,7 @@ export async function iniciarCarrera(datos: DatosInicioCarrera): Promise<Carrera
       ovrInicio: player.ovr,
     });
     await historialRepository.crearEtapaInicial(player.id, club.id, datos.anioInicio);
-    await generarFixtureTemporada(temporada, club, player.pais);
+    await generarFixtureTemporada(temporada, club);
     return { player, temporada };
   } catch (error) {
     // Compensación: la carrera quedó a medias, se descarta al jugador.

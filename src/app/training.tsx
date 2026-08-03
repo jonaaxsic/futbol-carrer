@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
@@ -14,6 +15,7 @@ import {
   resolverEntrenamiento,
   estaCompletado,
 } from '@/services/trainingService';
+import { energiaActual, ENERGIA_ENTRENAMIENTO } from '@/services/energiaService';
 import { obtenerJugadorActivo } from '@/services/playerService';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
@@ -73,6 +75,9 @@ export default function TrainingScreen() {
 
   const { restanteMs, terminado } = useCountdownTraining(pendiente?.finEstimadaTs ?? null);
 
+  const energia = player ? energiaActual(player) : 0;
+  const puedeEntrenar = energia >= ENERGIA_ENTRENAMIENTO;
+
   // El countdown terminó: resolver la sesión vencida (setState en .then).
   useEffect(() => {
     if (!player || !pendiente || !terminado) return;
@@ -113,7 +118,9 @@ export default function TrainingScreen() {
         <>
           <PrimaryButton
             label={resultado ? 'Listo' : 'Confirmar entrenamiento'}
-            disabled={elegido == null || cargando || iniciando || Boolean(pendiente)}
+            disabled={
+              elegido == null || cargando || iniciando || Boolean(pendiente) || !puedeEntrenar
+            }
             onPress={() => {
               if (resultado) {
                 router.back();
@@ -167,6 +174,21 @@ export default function TrainingScreen() {
               el conteo continúa.
             </AppText>
 
+            <View style={styles.energiaCard}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="flash" size={16} color={colors.warning} />
+                <AppText variant="label" uppercase color="textSecondary">
+                  Energía disponible
+                </AppText>
+              </View>
+              <AppText variant="heading">
+                {Math.floor(energia)} / 10
+              </AppText>
+              <AppText variant="caption" color={puedeEntrenar ? 'textSecondary' : 'danger'}>
+                Entrenar cuesta {ENERGIA_ENTRENAMIENTO} barras · se regenera 1 cada 2 h
+              </AppText>
+            </View>
+
             <View style={styles.opciones}>
               {(Object.keys(TIPOS_ENTRENAMIENTO) as TipoEntrenamiento[]).map((id) => {
                 const cfg = TIPOS_ENTRENAMIENTO[id];
@@ -175,10 +197,12 @@ export default function TrainingScreen() {
                   <Pressable
                     key={id}
                     onPress={() => setElegido(id)}
+                    disabled={!puedeEntrenar}
                     style={({ pressed }) => [
                       styles.opcionCard,
                       isSelected && styles.opcionCardSelected,
                       pressed && styles.pressed,
+                      !puedeEntrenar && styles.opcionCardBloqueada,
                     ]}>
                     <View style={styles.opcionHeader}>
                       <AppText variant="heading" color={isSelected ? 'textPrimary' : 'textSecondary'}>
@@ -218,6 +242,19 @@ const styles = StyleSheet.create({
   carga: { marginTop: spacing.xl },
   intro: { marginBottom: spacing.sm },
   opciones: { gap: spacing.md },
+  energiaCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   opcionCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -225,6 +262,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.xs,
+  },
+  opcionCardBloqueada: {
+    opacity: 0.4,
   },
   opcionCardSelected: {
     borderColor: colors.accent,

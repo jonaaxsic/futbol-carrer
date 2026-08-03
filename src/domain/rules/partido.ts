@@ -21,11 +21,26 @@ export interface SimularPartidoParams {
   random?: () => number;
 }
 
+/** Tipo de situación generada durante el partido (se guarda en eventos_json). */
+export type TipoSituacion =
+  | 'penal'
+  | 'expulsion'
+  | 'tiro-libre'
+  | 'lesion'
+  | 'oportunidad-clara';
+
+export interface SituacionPartido {
+  tipo: TipoSituacion;
+  /** Minuto aproximado del suceso (1-90). */
+  minuto: number;
+  descripcion: string;
+}
+
 export interface ResultadoSimulacion {
   /** Goles a favor / en contra (nuestro club). */
   golesFavor: number;
   golesContra: number;
-  /** Goles del jugador en el partido. */
+  /** Goles del jugador en el partido (incluye penales convertidos). */
   golesJugador: number;
   /** Asistencias del jugador. */
   asistenciasJugador: number;
@@ -33,6 +48,12 @@ export interface ResultadoSimulacion {
   amarilla: boolean;
   /** true si fue expulsado (tarjeta roja) — raro. */
   roja: boolean;
+  /** true si el jugador se lesionó durante el partido. */
+  lesion: boolean;
+  /** true si el jugador se pierde el PRÓXIMO partido (lesión o expulsión). */
+  suspendidoProximo: boolean;
+  /** Sucesos del partido (penal, roja, tiro libre, lesión, ocasión clara). */
+  situaciones: SituacionPartido[];
   victoria: boolean;
   empate: boolean;
   derrota: boolean;
@@ -85,19 +106,85 @@ export function simularPartido(params: SimularPartidoParams): ResultadoSimulacio
   const empate = !victoria && roll < probVictoria + 0.25;
 
   // Goles del equipo (más si ganamos).
-  const golesFavor = victoria ? 2 + Math.floor(rnd() * 2) : empate ? 1 : Math.floor(rnd() * 2);
+  let golesFavor = victoria ? 2 + Math.floor(rnd() * 2) : empate ? 1 : Math.floor(rnd() * 2);
   const golesContra = victoria ? Math.floor(rnd() * 2) : empate ? 1 : 2 + Math.floor(rnd() * 2);
 
   // Rendimiento individual del jugador.
   const factorPosicion = GOLES_POR_POSICION[params.posicion] ?? 0.4;
   const probGol = (0.12 + params.ovrJugador / 300) * factorPosicion * forma;
-  const golesJugador = rnd() < probGol ? 1 + (rnd() < 0.2 ? 1 : 0) : 0;
+  let golesJugador = rnd() < probGol ? 1 + (rnd() < 0.2 ? 1 : 0) : 0;
   const factorAsist = ASISTENCIAS_POR_POSICION[params.posicion] ?? 0.5;
   const probAsist = (0.18 + params.ovrJugador / 400) * factorAsist * forma;
   const asistenciasJugador = rnd() < probAsist ? 1 : 0;
 
   const amarilla = rnd() < 0.08;
-  const roja = !amarilla && rnd() < 0.01;
+  const roja = !amarilla && rnd() < 0.015;
+
+  // ---- Situaciones del partido (narrativa + reglas, §4.5.x) ----
+  // Se generan y se guardan en `partido.eventos_json`. Algunas impactan el
+  // resultado (penal convertido) o el próximo partido (lesión / expulsión).
+  const situaciones: SituacionPartido[] = [];
+  const minutoAleatorio = () => 1 + Math.floor(rnd() * 90);
+
+  // Penal: el jugador lo puede convertir (suma a sus goles).
+  if (rnd() < 0.12) {
+    const convertido = rnd() < 0.78;
+    situaciones.push({
+      tipo: 'penal',
+      minuto: minutoAleatorio(),
+      descripcion: convertido
+        ? 'Cobró un penal y lo convirtió.'
+        : 'Cobró un penal y el arquero lo atajó.',
+    });
+    if (convertido) {
+      golesFavor += 1;
+      golesJugador += 1;
+    }
+  }
+
+  // Tiro libre: narrativo, con posibilidad de asistencia.
+  if (rnd() < 0.1) {
+    const gol = rnd() < 0.35;
+    situaciones.push({
+      tipo: 'tiro-libre',
+      minuto: minutoAleatorio(),
+      descripcion: gol
+        ? 'Ejecutó un tiro libre que terminó en gol del equipo.'
+        : 'Probó con un tiro libre que se fue desviado.',
+    });
+    if (gol) golesFavor += 1;
+  }
+
+  // Lesión: además de la situación, se pierde el próximo partido.
+  const lesion = rnd() < 0.045;
+  if (lesion) {
+    situaciones.push({
+      tipo: 'lesion',
+      minuto: minutoAleatorio(),
+      descripcion: 'Sufrió una lesión y no podrá estar en el próximo partido.',
+    });
+  }
+
+  if (roja) {
+    situaciones.push({
+      tipo: 'expulsion',
+      minuto: minutoAleatorio(),
+      descripcion: 'Vio la tarjeta roja y dejó al equipo con uno menos.',
+    });
+  }
+
+  // Ocasión clara: refuerza la narrativa sin impactar el marcador.
+  if (situaciones.length === 0 && rnd() < 0.6) {
+    const minuto = minutoAleatorio();
+    situaciones.push({
+      tipo: 'oportunidad-clara',
+      minuto,
+      descripcion:
+        'Generó una ocasión clarísima que no se convirtió en gol.',
+    });
+  }
+
+  const suspendidoProximo = lesion || roja;
 
   return {
     golesFavor,
@@ -106,6 +193,9 @@ export function simularPartido(params: SimularPartidoParams): ResultadoSimulacio
     asistenciasJugador,
     amarilla,
     roja,
+    lesion,
+    suspendidoProximo,
+    situaciones,
     victoria,
     empate,
     derrota: !victoria && !empate,
@@ -114,14 +204,5 @@ export function simularPartido(params: SimularPartidoParams): ResultadoSimulacio
 
 export const resultadoString = (r: ResultadoSimulacion): string =>
   `${r.golesFavor}-${r.golesContra}`;
-
-/** Ajusta la "forma" del jugador: descansa al menos 2 días → forma óptima. */
-export function calcularForma(descansoHoras: number): number {
-  if (descansoHoras >= 96) return 1.3;
-  if (descansoHoras >= 72) return 1.15;
-  if (descansoHoras >= 48) return 1.0;
-  if (descansoHoras >= 24) return 0.85;
-  return 0.7;
-}
 
 export { OVR_MAX };

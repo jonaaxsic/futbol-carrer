@@ -16,6 +16,10 @@ export interface PlayerRow {
   club_id: number | null;
   estado: string;
   temporada_actual: number;
+  energia: number;
+  energia_max: number;
+  /** null solo en filas anteriores a la migración 002 (≈ al crear). */
+  energia_actualizada_ts: number | null;
   created_at_ts: number;
 }
 
@@ -51,6 +55,10 @@ export function filaToPlayer(fila: PlayerRow): Player {
     clubId: fila.club_id,
     estado: fila.estado,
     temporadaActual: fila.temporada_actual,
+    energia: fila.energia,
+    energiaMax: fila.energia_max,
+    // Fallback para filas previas a la migración 002: arrancan "llenas".
+    energiaActualizadaTs: fila.energia_actualizada_ts ?? fila.created_at_ts,
     createdAtTs: fila.created_at_ts,
   };
 }

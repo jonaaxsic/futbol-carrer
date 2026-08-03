@@ -25,6 +25,8 @@ export interface PlayerRepository {
   setTemporadaActual(id: number, temporada: number): Promise<void>;
   /** Marca estado = 'retirado' (Sprint 7). */
   retirar(id: number): Promise<void>;
+  /** Persiste energía tras un gasto (sistema de energía, §4.2). */
+  setEnergia(id: number, energia: number, energiaActualizadaTs: number): Promise<void>;
   /** Dev: borra todos los jugadores (reset de carrera). */
   deleteAll(): Promise<void>;
 }
@@ -34,6 +36,8 @@ export interface ClubRepository {
   findById(id: number): Promise<Club | null>;
   /** Ofertas de inicio: clubes del país del jugador (Sprint 2). */
   findByPais(pais: string): Promise<Club[]>;
+  /** Clubes de una división del país (rivales reales de liga, §4.1). */
+  findByPaisYLiga(pais: string, liga: string): Promise<Club[]>;
 }
 
 export interface TemporadaRepository {
@@ -88,6 +92,10 @@ export interface PartidoRepository {
     asistencias: number,
     eventosJson: string | null,
   ): Promise<void>;
+  /** Marca suspendido un partido que el jugador se pierde (lesión/roja). */
+  marcarSuspendido(id: number, motivo: string): Promise<void>;
+  /** Omite definitivamente un partido suspendido (no suma stats). */
+  omitir(id: number): Promise<void>;
 }
 
 export interface EntrenamientoRepository {

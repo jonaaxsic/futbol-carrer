@@ -45,4 +45,19 @@ export const partidoRepository: PartidoRepository = {
       [resultado, goles, asistencias, eventosJson, id],
     );
   },
+
+  /** Marca un partido como suspendido (lesión/expulsión): se omite sin stats. */
+  async marcarSuspendido(id: number, motivo: string): Promise<void> {
+    const db = await getDb();
+    await db.runAsync(
+      `UPDATE partido SET suspendido = 1, eventos_json = ? WHERE id = ?`,
+      [JSON.stringify({ suspendido: motivo }), id],
+    );
+  },
+
+  /** Omite definitivamente un partido suspendido (no suma PJ ni goles). */
+  async omitir(id: number): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE partido SET jugo = 1, suspendido = 1 WHERE id = ?', [id]);
+  },
 };

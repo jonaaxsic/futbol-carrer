@@ -31,4 +31,14 @@ export const clubRepository: ClubRepository = {
     );
     return filas.map(filaToClub);
   },
+
+  /** Todos los clubes de una división del país (fixture: mismos rivales de liga). */
+  async findByPaisYLiga(pais: string, liga: string): Promise<Club[]> {
+    const db = await getDb();
+    const filas = await db.getAllAsync<ClubRow>(
+      'SELECT * FROM club WHERE pais = ? AND liga = ? ORDER BY prestigio DESC',
+      [pais, liga],
+    );
+    return filas.map(filaToClub);
+  },
 };

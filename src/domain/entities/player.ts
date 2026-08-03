@@ -21,6 +21,12 @@ export interface Player {
   clubId: number | null;
   estado: EstadoJugador;
   temporadaActual: number;
+  /** Barras de energía disponibles (almacenadas al último gasto). */
+  energia: number;
+  /** Máximo de barras (10 por defecto). */
+  energiaMax: number;
+  /** Epoch ms del último gasto/actualización — base de la regeneración. */
+  energiaActualizadaTs: number;
   /** Epoch ms de creación. */
   createdAtTs: number;
 }

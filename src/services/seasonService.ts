@@ -178,7 +178,7 @@ export async function cerrarTemporada(
     ovrInicio: ovrFin,
   });
 
-  await generarFixtureTemporada(nuevaTemporada, clubFinal, pais);
+  await generarFixtureTemporada(nuevaTemporada, clubFinal);
 
   // Evaluar retiro con la edad nueva y la oferta del cierre (§4.6).
   const retiro = checkRetirementConditions({
@@ -250,6 +250,7 @@ export async function simularTemporadaCompleta(
     const playerActual = { ...player, ovr: ovrActual };
     const resultado = await jugarPartido(playerActual, temporada, partido, rival, {
       conEvento: false,
+      consumirEnergia: false,
     });
 
     if (resultado.simulacion.victoria) victorias += 1;

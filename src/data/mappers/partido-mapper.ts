@@ -10,6 +10,7 @@ export interface PartidoRow {
   local: number;
   resultado: string | null;
   jugo: number;
+  suspendido: number;
   goles: number;
   asistencias: number;
   eventos_json: string | null;
@@ -26,6 +27,7 @@ export function filaToPartido(fila: PartidoRow): Partido {
     local: fila.local === 1,
     resultado: fila.resultado,
     jugo: fila.jugo === 1,
+    suspendido: fila.suspendido === 1,
     goles: fila.goles,
     asistencias: fila.asistencias,
     eventosJson: fila.eventos_json,

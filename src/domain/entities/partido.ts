@@ -6,7 +6,7 @@
 export interface Partido {
   id: number;
   temporadaId: number;
-  /** Epoch ms de la fecha del partido (fixture generado cada 3-4 días, §4.1). */
+  /** Epoch ms de la fecha del partido (fixture generado al crear la carrera, §4.1). */
   fechaTs: number;
   rivalClubId: number;
   competencia: string;
@@ -15,9 +15,11 @@ export interface Partido {
   /** Resultado ej. "2-1"; null si aún no se jugó. */
   resultado: string | null;
   jugo: boolean;
+  /** true si el jugador se perdió el partido (lesión/expulsión, se omite). */
+  suspendido: boolean;
   goles: number;
   asistencias: number;
-  /** JSON con eventos del partido (targetas, penales...) — Sprint 5. */
+  /** JSON con situaciones del partido (penales, rojas, lesiones...) §4.5. */
   eventosJson: string | null;
 }
 

@@ -2,35 +2,33 @@ import type { Club } from '@/domain/entities/club';
 import type { Partido } from '@/domain/entities/partido';
 import type { Temporada } from '@/domain/entities/temporada';
 import { generarFixture } from '@/domain/rules/fixture';
-import { LIGAS_POR_PAIS, type Country } from '@/shared/constants/game';
 
 import { clubRepository } from '@/data/repositories/club-repository';
 import { partidoRepository } from '@/data/repositories/partido-repository';
 
 /**
- * Calendario de temporada (Sprint 3).
- * Orquesta: consulta rivales del país → genera fixture (regla pura) → persiste.
- * El club del jugador se pasa explícitamente (lo conoce careerService al crear
- * la carrera); este service NO resuelve el jugador (O/D: no mezcla dominios).
+ * Calendario de temporada.
+ * Orquesta: consulta los clubes de la MISMA división → genera fixture
+ * (regla pura, anclado a HOY) → persiste. El club del jugador se pasa
+ * explícitamente (lo conoce careerService al crear la carrera).
  */
 
 /** Genera e inserta el fixture completo de una temporada. */
 export async function generarFixtureTemporada(
   temporada: Temporada,
   club: Club,
-  pais: Country,
 ): Promise<void> {
-  // Rivales = otros clubes del mismo país, excluyendo el propio.
-  const clubesPais = await clubRepository.findByPais(pais);
-  const rivales = clubesPais.filter((c) => c.id !== club.id).map((c) => c.id);
+  // Rivales = clubes de la misma división que el club del jugador.
+  const clubesDivision = await clubRepository.findByPaisYLiga(club.pais, club.liga);
+  const rivales = clubesDivision.filter((c) => c.id !== club.id).map((c) => c.id);
 
   const fixture = generarFixture({
     clubId: club.id,
     rivalesIds: rivales,
     prestigio: club.prestigio,
-    liga: LIGAS_POR_PAIS[pais],
-    copa: `Copa ${pais}`,
-    anioInicio: temporada.anioInicio,
+    liga: club.liga,
+    copa: `Copa ${club.pais}`,
+    inicioTs: Date.now(),
   });
 
   await partidoRepository.createMany(
@@ -42,6 +40,11 @@ export async function generarFixtureTemporada(
       local: f.local,
     })),
   );
+}
+
+/** Partido suspendido (lesión/expulsión): se omite sin sumar stats. */
+export async function omitirPartido(partidoId: number): Promise<void> {
+  await partidoRepository.omitir(partidoId);
 }
 
 /** Próximos partidos de la temporada activa (no jugados). */

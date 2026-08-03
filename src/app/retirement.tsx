@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { obtenerResumenRetiro, type ResumenRetiro } from '@/services/careerService';
+import { obtenerResumenRetiro, retirarJugador, resetCarrera, type ResumenRetiro } from '@/services/careerService';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton } from '@/presentation/components/atoms/button';
@@ -13,19 +13,27 @@ import { colors, radius, spacing } from '@/presentation/theme';
 /**
  * 15. FIN DE CARRERA (wireframe #15) — Sprint 7 real.
  * Tarjeta final estilo Copero: clubes, goles, asistencias, trofeos y mejor OVR
- * desde career_history + trophy + temporada. Al continuar, nueva carrera.
+ * desde career_history + trophy + temporada. Al entrar, el jugador queda
+ * RETIRADO en BD (estado='retirado', bug fix); al continuar, nueva carrera.
  */
 export default function RetirementScreen() {
   const player = usePlayerStore((s) => s.player);
   const [resumen, setResumen] = useState<ResumenRetiro | null>(null);
+  const [retirando, setRetirando] = useState(true);
 
   useEffect(() => {
     let activo = true;
     if (player) {
-      // Si ya está retirado (vino del cierre), solo juntamos datos.
-      obtenerResumenRetiro(player.id).then((r) => {
-        if (activo) setResumen(r);
-      });
+      // Persiste el retiro (estado = 'retirado') y junta el resumen final.
+      retirarJugador(player.id)
+        .then((r) => {
+          if (activo) setResumen(r);
+        })
+        .finally(() => {
+          if (activo) setRetirando(false);
+        });
+    } else {
+      setRetirando(false);
     }
     return () => {
       activo = false;

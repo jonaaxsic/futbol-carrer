@@ -1,13 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Club } from '@/domain/entities/club';
+import type { Partido } from '@/domain/entities/partido';
+import type {
+  ResultadoSimulacion,
+  SituacionPartido,
+} from '@/domain/rules/partido';
 import { clubRepository } from '@/data/repositories/club-repository';
-import { playerRepository } from '@/data/repositories/player-repository';
-import { obtenerProximosPartidos } from '@/services/calendarService';
-import { cerrarTemporada, simularTemporadaCompleta } from '@/services/seasonService';
+import { temporadaRepository } from '@/data/repositories/temporada-repository';
+import { obtenerProximosPartidos, omitirPartido } from '@/services/calendarService';
+import { cerrarTemporada } from '@/services/seasonService';
+import { jugarPartido } from '@/services/partidoService';
+import {
+  energiaActual,
+  proximaBarraEn,
+  ENERGIA_PARTIDO,
+} from '@/services/energiaService';
+import { formatearFechaCorta } from '@/shared/utils/fechas';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { useCierreStore } from '@/state/useCierreStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
@@ -16,10 +28,10 @@ import { ScreenContainer } from '@/presentation/components/atoms/screen-containe
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
- * 8. HOME / DASHBOARD (flujo estilo Copero).
- * Simple: 1 toque = simular TODA la temporada (motor puro, fixture completo).
- * El resultado se muestra acá; al terminar, se cierra la temporada y el
- * resumen decide trofeos, selección y ofertas. Sin mercado, sin micro-gestión.
+ * 8. HOME / DASHBOARD — partido por partido con energía.
+ * Regla §4.2: jugar cuesta ENERGIA_PARTIDO barras; se regenera 1 barra/2h
+ * por reloj real (timestamp). El botón de jugar se bloquea sin energía; los
+ * partidos suspendidos (lesión/expulsión) se omiten sin sumar stats.
  */
 export default function DashboardScreen() {
   const player = usePlayerStore((s) => s.player);
@@ -29,25 +41,40 @@ export default function DashboardScreen() {
   const fijarCierre = useCierreStore((s) => s.fijar);
 
   const [club, setClub] = useState<Club | null>(null);
+  const [pendientes, setPendientes] = useState<Partido[]>([]);
+  const [rivales, setRivales] = useState<Record<number, Club>>({});
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
-  const [pendientes, setPendientes] = useState(0);
-  const [resumen, setResumen] = useState<{
-    victorias: number;
-    derrotas: number;
-    goles: number;
-    asistencias: number;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [resultados, setResultados] = useState<
+    { partido: Partido; simulacion: ResultadoSimulacion; rivalNombre: string }[]
+  >([]);
+  // Tick para re-renderizar la energía (regen por tiempo) sin timers de juego.
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const intervalo = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   const cargar = useCallback(async () => {
     if (!player || !temporadaActiva) return;
     try {
       const [clubData, partidos] = await Promise.all([
         player.clubId ? clubRepository.findById(player.clubId) : Promise.resolve(null),
-        obtenerProximosPartidos(temporadaActiva.id, Date.now(), 100),
+        obtenerProximosPartidos(temporadaActiva.id, 0, 100),
       ]);
       setClub(clubData);
-      setPendientes(partidos.length);
+      setPendientes(partidos);
+      const mapa: Record<number, Club> = {};
+      await Promise.all(
+        partidos.map(async (p) => {
+          if (mapa[p.rivalClubId]) return;
+          const c = await clubRepository.findById(p.rivalClubId);
+          if (c) mapa[p.rivalClubId] = c;
+        }),
+      );
+      setRivales(mapa);
     } finally {
       setCargando(false);
     }
@@ -56,6 +83,9 @@ export default function DashboardScreen() {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const energia = player ? energiaActual(player) : 0;
+  const primerPartido = pendientes[0];
 
   if (!player || !temporadaActiva) {
     return (
@@ -70,21 +100,41 @@ export default function DashboardScreen() {
     );
   }
 
-  async function simular() {
+  async function jugar(p: Partido) {
     if (!player || !temporadaActiva || !club || ocupado) return;
+    const rival = rivales[p.rivalClubId];
+    if (!rival) return;
+    setOcupado(true);
+    setError(null);
+    try {
+      const resultado = await jugarPartido(player, temporadaActiva, p, rival, {
+        conEvento: false,
+      });
+      setPlayer(resultado.jugadorActualizado);
+      setResultados((prev) =>
+        [
+          { partido: resultado.partidoActualizado, simulacion: resultado.simulacion, rivalNombre: rival.nombre },
+          ...prev,
+        ].slice(0, 3),
+      );
+      if (resultado.eventoPosterior) {
+        // El dashboard juega partido por partido: el evento narra POST se
+        // resuelve en el cierre de temporada (flujo Copero).
+      }
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo jugar el partido');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function omitir(p: Partido) {
+    if (ocupado) return;
     setOcupado(true);
     try {
-      const resultado = await simularTemporadaCompleta(player, temporadaActiva, club);
-      setResumen({
-        victorias: resultado.victorias,
-        derrotas: resultado.derrotas,
-        goles: resultado.goles,
-        asistencias: resultado.asistencias,
-      });
-      setPendientes(0);
-      // Releer jugador (pudo ajustarse OVR por rendimiento).
-      const jugadorActualizado = await playerRepository.findById(player.id);
-      if (jugadorActualizado) setPlayer(jugadorActualizado);
+      await omitirPartido(p.id);
+      await cargar();
     } finally {
       setOcupado(false);
     }
@@ -92,18 +142,29 @@ export default function DashboardScreen() {
 
   async function cerrar() {
     if (!player || !temporadaActiva || !club || ocupado) return;
+    // Bug C: nunca cerrar sin haber jugado al menos un partido. El store
+    // queda stale tras jugar; leo la temporada fresca de BD (stats reales).
+    const temporadaFresca = await temporadaRepository.findActiva(player.id);
+    if (!temporadaFresca || temporadaFresca.pj === 0) {
+      setError('Aún no jugaste ningún partido. Jugá antes de cerrar la temporada.');
+      return;
+    }
+    setTemporadaActiva(temporadaFresca);
     setOcupado(true);
     try {
-      const cierre = await cerrarTemporada(player, temporadaActiva, club, player.pais);
+      const cierre = await cerrarTemporada(player, temporadaFresca, club, player.pais);
       fijarCierre(cierre);
       setPlayer(cierre.player);
       setTemporadaActiva(cierre.nuevaTemporada);
-      setResumen(null);
+      setResultados([]);
       router.push('/season-summary');
     } finally {
       setOcupado(false);
     }
   }
+
+  const puedeJugarAhora = energia >= ENERGIA_PARTIDO;
+  const proxima = proximaBarraEn(player);
 
   return (
     <ScreenContainer>
@@ -122,12 +183,8 @@ export default function DashboardScreen() {
             </AppText>
           </View>
           <View style={styles.ovrBadge}>
-            <AppText variant="caption" color="onAccent">
-              OVR
-            </AppText>
-            <AppText variant="heading" color="onAccent">
-              {player.ovr}
-            </AppText>
+            <AppText variant="caption" color="onAccent">OVR</AppText>
+            <AppText variant="heading" color="onAccent">{player.ovr}</AppText>
           </View>
         </View>
 
@@ -135,47 +192,132 @@ export default function DashboardScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="shield" size={18} color={colors.textSecondary} />
-            <AppText variant="label" uppercase color="textSecondary">
-              Club
-            </AppText>
+            <AppText variant="label" uppercase color="textSecondary">Club</AppText>
           </View>
           <AppText variant="body">{club?.nombre ?? '—'}</AppText>
           <AppText variant="caption" color="textMuted">
-            Temporada {temporadaActiva.anioInicio} · {temporadaActiva.modo === 'rapido' ? 'rápido' : 'normal'}
+            Temporada {temporadaActiva.anioInicio} · {club?.liga ?? ''} ·{' '}
+            {temporadaActiva.modo === 'rapido' ? 'rápido' : 'normal'}
           </AppText>
         </View>
 
-        {/* Resultado de la simulación */}
-        {resumen ? (
-          <View style={styles.card}>
-            <AppText variant="label" uppercase color="textSecondary">
-              Temporada completa
-            </AppText>
-            <View style={styles.statsRow}>
-              <MiniStat label="Victorias" valor={resumen.victorias} />
-              <MiniStat label="Derrotas" valor={resumen.derrotas} />
-              <MiniStat label="Goles" valor={resumen.goles} />
-              <MiniStat label="Asistencias" valor={resumen.asistencias} />
-            </View>
+        {/* Energía (§4.2) */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="flash" size={18} color={colors.warning} />
+            <AppText variant="label" uppercase color="textSecondary">Energía</AppText>
           </View>
-        ) : (
+          <View style={styles.barras}>
+            {Array.from({ length: player.energiaMax }, (_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.barra,
+                  i < Math.floor(energia) && styles.barraLlena,
+                  i < Math.floor(energia) && energia < ENERGIA_PARTIDO && styles.barraBaja,
+                ]}
+              />
+            ))}
+          </View>
+          <AppText variant="caption" color="textSecondary">
+            {Math.floor(energia)} / {player.energiaMax} · jugar cuesta {ENERGIA_PARTIDO}
+            {proxima != null
+              ? ` · próxima barra en ~${formatearCorto(proxima)}`
+              : ' · energía al máximo'}
+          </AppText>
+          {!puedeJugarAhora && (
+            <AppText variant="caption" color="danger">
+              Energía insuficiente para jugar (se regenera cada 2 h).
+            </AppText>
+          )}
+        </View>
+
+        {error && (
+          <AppText variant="caption" color="danger">{error}</AppText>
+        )}
+
+        {/* Próximos partidos */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar" size={18} color={colors.textSecondary} />
+            <AppText variant="label" uppercase color="textSecondary">
+              Próximos partidos
+            </AppText>
+          </View>
+          {pendientes.length === 0 ? (
+            <AppText variant="body" color="textSecondary">
+              Temporada jugada al 100%. Cerrá la temporada para conocer tu destino.
+            </AppText>
+          ) : (
+            pendientes.slice(0, 6).map((p) => {
+              const rival = rivales[p.rivalClubId];
+              const esPrimero = p.id === primerPartido.id;
+              return (
+                <View key={p.id} style={styles.partidoRow}>
+                  <View style={styles.partidoInfo}>
+                    <AppText variant="body" color={esPrimero ? 'textPrimary' : 'textMuted'}>
+                      {rival?.nombre ?? '—'}
+                    </AppText>
+                    <AppText variant="caption" color="textMuted">
+                      {formatearFechaCorta(p.fechaTs)} · {p.competencia} ·{' '}
+                      {p.local ? 'Local' : 'Visitante'}
+                    </AppText>
+                  </View>
+                  <View style={styles.partidoAccion}>
+                    {!esPrimero ? (
+                      <AppText variant="caption" color="textMuted">Espera</AppText>
+                    ) : p.suspendido ? (
+                      <Pressable
+                        onPress={() => omitir(p)}
+                        disabled={ocupado}
+                        style={({ pressed }) => [
+                          styles.chipAccion,
+                          pressed && styles.pressed,
+                        ]}>
+                        <AppText variant="caption" color="onAccent">Omitir</AppText>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => jugar(p)}
+                        disabled={ocupado || !puedeJugarAhora}
+                        style={({ pressed }) => [
+                          styles.chipAccion,
+                          !puedeJugarAhora && styles.chipBloqueado,
+                          pressed && styles.pressed,
+                        ]}>
+                        <AppText
+                          variant="caption"
+                          color={puedeJugarAhora ? 'onAccent' : 'textMuted'}>
+                          Jugar
+                        </AppText>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Último resultado con situaciones */}
+        {resultados.length > 0 && (
           <View style={styles.card}>
             <AppText variant="label" uppercase color="textSecondary">
-              Temporada {temporadaActiva.anioInicio}
+              Último partido
             </AppText>
-            <AppText variant="body">
-              {pendientes > 0
-                ? `${pendientes} partidos esperando. Tocá SIMULAR para jugarlos todos de una vez.`
-                : 'Temporada jugada. Cerrá para conocer tu destino.'}
-            </AppText>
+{resultados.map((r) => (
+              <ResumenPartido key={r.partido.id} resultado={r} />
+            ))}
           </View>
         )}
 
         <View style={styles.actions}>
-          {pendientes > 0 ? (
-            <PrimaryButton label="Simular temporada" onPress={simular} disabled={ocupado} />
-          ) : (
+          {pendientes.length === 0 ? (
             <PrimaryButton label="Cerrar temporada" onPress={cerrar} disabled={ocupado} />
+          ) : (
+            <AppText variant="caption" color="textMuted" style={styles.hint}>
+              Jugá partido por partido; la energía se regenera con el tiempo.
+            </AppText>
           )}
         </View>
       </View>
@@ -183,13 +325,59 @@ export default function DashboardScreen() {
   );
 }
 
-function MiniStat({ label, valor }: { label: string; valor: number }) {
+const ICONO_SITUACION: Record<SituacionPartido['tipo'], keyof typeof Ionicons.glyphMap> = {
+  penal: 'football',
+  expulsion: 'close-circle',
+  'tiro-libre': 'refresh',
+  lesion: 'bandage',
+  'oportunidad-clara': 'telescope',
+};
+
+const ETIQUETA_SITUACION: Record<SituacionPartido['tipo'], string> = {
+  penal: 'Penal',
+  expulsion: 'Expulsión',
+  'tiro-libre': 'Tiro libre',
+  lesion: 'Lesión',
+  'oportunidad-clara': 'Ocasión clara',
+};
+
+function ResumenPartido({
+  resultado,
+}: {
+  resultado: { partido: Partido; simulacion: ResultadoSimulacion; rivalNombre: string };
+}) {
+  const { partido, simulacion, rivalNombre } = resultado;
   return (
-    <View style={styles.miniStat}>
-      <AppText variant="heading">{valor}</AppText>
-      <AppText variant="caption">{label}</AppText>
+    <View style={styles.resultado}>
+      <AppText variant="heading">
+        {rivalNombre} {partido.resultado}
+      </AppText>
+      <AppText variant="caption" color="textSecondary">
+        {simulacion.golesJugador} goles · {simulacion.asistenciasJugador} asist.
+        {simulacion.amarilla ? ' · amarilla' : ''}
+        {simulacion.roja ? ' · roja' : ''}
+        {simulacion.lesion ? ' · lesion' : ''}
+      </AppText>
+      {simulacion.situaciones.map((sit, i) => (
+        <View key={i} style={styles.situacion}>
+          <Ionicons
+            name={ICONO_SITUACION[sit.tipo]}
+            size={14}
+            color={colors.textSecondary}
+          />
+          <AppText variant="caption" style={styles.situacionTexto}>
+            {sit.minuto}' · {sit.descripcion}
+          </AppText>
+        </View>
+      ))}
     </View>
   );
+}
+
+function formatearCorto(ms: number): string {
+  const mins = Math.ceil(ms / 60_000);
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)} h ${mins % 60} min`;
 }
 
 const styles = StyleSheet.create({
@@ -237,18 +425,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  statsGrid: {
+  barras: {
     flexDirection: 'row',
+    gap: 4,
+  },
+  barra: {
+    flex: 1,
+    height: 12,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+  },
+  barraLlena: {
+    backgroundColor: colors.success,
+  },
+  barraBaja: {
+    backgroundColor: colors.warning,
+  },
+  partidoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  partidoInfo: { flex: 1, gap: 2 },
+  partidoAccion: {
+    minWidth: 72,
+    alignItems: 'flex-end',
+  },
+  chipAccion: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  chipBloqueado: {
+    backgroundColor: colors.border,
+  },
+  pressed: { opacity: 0.7 },
+  resultado: { gap: spacing.xs, paddingVertical: spacing.sm },
+  situacion: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  statsRow: {
-    flexDirection: 'row',
-  },
-  miniStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-    paddingVertical: spacing.sm,
-  },
+  situacionTexto: { flex: 1 },
   actions: { marginTop: 'auto', gap: spacing.md },
+  hint: { textAlign: 'center' },
 });

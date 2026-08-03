@@ -5,16 +5,22 @@ import type { PlayerRepository } from '@/domain/interfaces/repositories';
 
 import { entrenamientoRepository } from '@/data/repositories/entrenamiento-repository';
 import { playerRepository } from '@/data/repositories/player-repository';
+import {
+  consumirEnergia,
+  energiaActual,
+  ENERGIA_ENTRENAMIENTO,
+} from '@/services/energiaService';
 
 /**
- * Casos de uso de entrenamiento (Sprint 4).
+ * Casos de uso de entrenamiento (§4.2).
  * El "tiempo real" se guarda con timestamps: si la app se cierra,
  * al volver se detecta que la sesión ya venció y se resuelve sola.
+ * Cada sesión es VOLUNTARIA y cuesta ENERGIA_ENTRENAMIENTO barras.
  */
 
 const MS_HORA = 3_600_000;
 
-/** Inicia un entrenamiento (bloqueado si ya hay uno en curso). */
+/** Inicia un entrenamiento (cuesta energía; se bloquea sin energía suficiente). */
 export async function iniciarEntrenamiento(
   playerId: number,
   tipo: TipoEntrenamiento,
@@ -23,6 +29,14 @@ export async function iniciarEntrenamiento(
   if (pendiente && !estaCompletado(pendiente)) {
     throw new Error('Ya hay un entrenamiento en curso');
   }
+
+  const player = await playerRepository.findById(playerId);
+  if (!player) throw new Error('Jugador inexistente');
+
+  if (energiaActual(player) < ENERGIA_ENTRENAMIENTO) {
+    throw new Error('Energía insuficiente para entrenar. Esperá a que se regenere.');
+  }
+  await consumirEnergia(player, ENERGIA_ENTRENAMIENTO);
 
   const cfg = TIPOS_ENTRENAMIENTO[tipo];
   const inicioTs = Date.now();

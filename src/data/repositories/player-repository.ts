@@ -13,11 +13,13 @@ import { filaToPlayer, type PlayerRow } from '../mappers/player-mapper';
 export const playerRepository: PlayerRepository = {
   async create(data: NuevoPlayer): Promise<Player> {
     const db = await getDb();
+    const ahora = Date.now();
     const resultado = await db.runAsync(
       `INSERT INTO player
          (nombre, apellido, numero, pais, posicion, pierna, edad, ovr,
-          club_id, estado, temporada_actual, created_at_ts)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          club_id, estado, temporada_actual, energia, energia_max,
+          energia_actualizada_ts, created_at_ts)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.nombre,
         data.apellido ?? null,
@@ -30,7 +32,10 @@ export const playerRepository: PlayerRepository = {
         data.clubId ?? null,
         'activo',
         1,
-        Date.now(),
+        10,
+        10,
+        ahora,
+        ahora,
       ],
     );
     const fila = await db.getFirstAsync<PlayerRow>(
@@ -76,6 +81,14 @@ export const playerRepository: PlayerRepository = {
   async retirar(id: number): Promise<void> {
     const db = await getDb();
     await db.runAsync("UPDATE player SET estado = 'retirado' WHERE id = ?", [id]);
+  },
+
+  async setEnergia(id: number, energia: number, energiaActualizadaTs: number): Promise<void> {
+    const db = await getDb();
+    await db.runAsync(
+      'UPDATE player SET energia = ?, energia_actualizada_ts = ? WHERE id = ?',
+      [energia, energiaActualizadaTs, id],
+    );
   },
 
   async deleteAll(): Promise<void> {

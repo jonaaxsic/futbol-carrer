@@ -2,14 +2,14 @@
  * Reglas del fixture de temporada (§4.1 del plan).
  * Puro: solo recibe datos y devuelve estructura — sin SQLite, sin React.
  *
- * Regla de juego: un partido cada 3-4 días (aleatorio dentro del rango),
- * generado completo al inicio de cada temporada, con competencias según
- * el prestigio del club: Liga (siempre) → Copa Nacional (prestigio ≥ 2)
- * → Continental (prestigio ≥ 4).
+ * Regla de juego: partidos casi diarios (1-2 días de separación), generado
+ * completo al momento de crear la carrera (anclado a HOY, no a una fecha
+ * fija), con competencias según el prestigio del club: Liga (siempre) →
+ * Copa Nacional (prestigio ≥ 2) → Continental (prestigio ≥ 4).
  */
 
 export interface PartidoFixture {
-  /** Epoch ms — se distancian 3-4 días entre sí. */
+  /** Epoch ms — se distancian 1-2 días entre sí. */
   fechaTs: number;
   rivalClubId: number;
   competencia: string;
@@ -19,40 +19,41 @@ export interface PartidoFixture {
 export interface OpcionesFixture {
   /** Id del club del jugador (se documenta; se usa para alternar localías). */
   clubId: number;
-  /** Ids de otros clubes del mismo país (rivales de liga). */
+  /** Ids de otros clubes de la MISMA división (rivales de liga). */
   rivalesIds: readonly number[];
   prestigio: number;
-  /** Nombre de la liga del país (ej. 'Liga Nacional'). */
+  /** Nombre de la liga/división (ej. 'Primera División'). */
   liga: string;
   /** Nombre de la copa nacional (ej. 'Copa Chile'), null si no aplica. */
   copa: string | null;
-  anioInicio: number;
+  /** Epoch ms del inicio de la temporada (hoy, al crear la carrera). */
+  inicioTs: number;
   /** Fuente de aleatoriedad inyectable (testeable). */
   random?: () => number;
 }
 
 const MS_DIA = 86_400_000;
 
-/** 1 de julio del año de inicio + margen de vacaciones. */
-export function fechaInicioTemporada(anioInicio: number): number {
-  return Date.UTC(anioInicio, 6, 1, 12);
+/** El fixture arranca en el momento en que se crea la carrera. */
+export function fechaInicioTemporada(inicioTs: number): number {
+  return inicioTs;
 }
 
 /**
  * Genera el fixture completo de una temporada:
- * - Liga: todos contra todos (ida y vuelta) entre los clubes del país.
+ * - Liga: todos contra todos (ida y vuelta) entre los clubes de la división.
  * - Copa: 2 rondas extra (prestigio ≥ 2).
  * - Continental: 4 partidos de fase de grupos (prestigio ≥ 4).
- * Los partidos se espacian 3-4 días; las copas se intercalan al final.
+ * Los partidos se espacian 1-2 días (casi diarios); las copas se intercalan.
  */
 export function generarFixture(opciones: OpcionesFixture): PartidoFixture[] {
-  const { clubId, rivalesIds, prestigio, liga, copa, anioInicio } = opciones;
+  const { clubId, rivalesIds, prestigio, liga, copa, inicioTs } = opciones;
   const rnd = opciones.random ?? Math.random;
   const partidos: PartidoFixture[] = [];
-  let cursor = fechaInicioTemporada(anioInicio);
+  let cursor = fechaInicioTemporada(inicioTs);
 
   const avanzar = () => {
-    cursor += (3 + Math.floor(rnd() * 2)) * MS_DIA; // 3 o 4 días
+    cursor += (1 + Math.floor(rnd() * 2)) * MS_DIA; // 1 o 2 días
   };
 
   // Defensa: el jugador nunca se enfrenta a su propio club.
