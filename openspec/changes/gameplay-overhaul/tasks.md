@@ -36,9 +36,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2 — Slice 1b-i: Formation + Onboarding (PR 2)
 
-- [ ] 2.1 `src/domain/value-objects/formacion.ts` new: `Formacion`, `SlotFormacion`, 5 `FORMACIONES` (11 slots), `formacionBaseDeClub` hash, `posicionesDeFormacion`, `validarFormacion`.
-- [ ] 2.2 `src/presentation/components/organisms/formation-pitch.tsx` new: modes `ver` (rival flip, highlight) + `seleccionar` (touchable slots) + Reanimated marker.
-- [ ] 2.3 Replace `PositionPitch` in `src/app/(onboarding)/position.tsx` with `FormationPitch` (4-2-3-1); do NOT touch identity.tsx.
+- [x] 2.1 `src/domain/value-objects/formacion.ts` new: `Formacion`, `SlotFormacion`, 5 `FORMACIONES` (11 slots), `formacionBaseDeClub` hash, `posicionesDeFormacion`, `validarFormacion`.
+- [x] 2.2 `src/presentation/components/organisms/formation-pitch.tsx` new: modes `ver` (rival flip, highlight) + `seleccionar` (touchable slots) + Reanimated marker.
+- [x] 2.3 Replace `PositionPitch` in `src/app/(onboarding)/position.tsx` with `FormationPitch` (4-2-3-1); do NOT touch identity.tsx.
 
 ## Phase 3 — Slice 1b-ii: Match + Banner + Dashboard (PR 3)
 
