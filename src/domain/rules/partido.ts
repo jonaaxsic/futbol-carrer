@@ -416,4 +416,32 @@ export function resolverPenalInaccion(lineaTiempo: EventoTimeline[]): EventoTime
   );
 }
 
+/** Dirección posible en el mini-juego de penal (spec penalty R2/R3). */
+export type DireccionPenal = 'izquierda' | 'centro' | 'derecha';
+
+/**
+ * Resuelve el penal interactivo del minuto dado con la elección del usuario
+ * (spec penalty R2): gol solo si la dirección del disparo difiere del lado
+ * precomputado del arquero; si coincide → atajado. Nunca re-simula el partido.
+ */
+export function resolverPenalConEleccion(
+  lineaTiempo: EventoTimeline[],
+  minuto: number,
+  eleccion: DireccionPenal,
+): EventoTimeline[] {
+  return lineaTiempo.map((e) => {
+    if (e.tipo !== 'penal' || e.minuto !== minuto || !e.penal?.interactivo || e.penal.resultado) {
+      return e;
+    }
+    const gol = eleccion !== e.penal.ladoArquero;
+    return {
+      ...e,
+      descripcion: gol
+        ? '¡Penal convertido! Elegiste bien y venciste al arquero.'
+        : 'Penal atajado: el arquero adivinó tu dirección.',
+      penal: { ...e.penal, resultado: gol ? ('gol' as const) : ('atajado' as const) },
+    };
+  });
+}
+
 export { OVR_MAX };

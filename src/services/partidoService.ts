@@ -199,6 +199,14 @@ export async function finalizarPartido(
 }
 
 /**
+ * Persiste la timeline (posiblemente mutada por el mini-juego de penal) sin
+ * marcar el partido como jugado (design D1: el replay sobrevive al fondo).
+ */
+export async function guardarLineaTiempo(partidoId: number, lineaTiempo: EventoTimeline[]): Promise<void> {
+  await partidoRepository.guardarTimeline(partidoId, eventosJsonDeLinea(lineaTiempo));
+}
+
+/**
  * Wrapper compatible (flujo actual del dashboard, se reemplaza en PR3):
  * inicia, resuelve los penales interactivos pendientes de forma automática
  * (sin input → fallado, spec R5) y finaliza.
