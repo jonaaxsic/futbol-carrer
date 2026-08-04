@@ -92,6 +92,8 @@ export interface PartidoRepository {
     asistencias: number,
     eventosJson: string | null,
   ): Promise<void>;
+  /** Persiste la timeline del replay (design D1: se guarda al INICIAR el partido). */
+  guardarTimeline(id: number, eventosJson: string): Promise<void>;
   /** Marca suspendido un partido que el jugador se pierde (lesión/roja). */
   marcarSuspendido(id: number, motivo: string): Promise<void>;
   /** Omite definitivamente un partido suspendido (no suma stats). */
