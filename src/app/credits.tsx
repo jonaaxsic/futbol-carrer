@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**

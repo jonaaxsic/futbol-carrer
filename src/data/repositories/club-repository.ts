@@ -23,10 +23,14 @@ export const clubRepository: ClubRepository = {
     return fila ? filaToClub(fila) : null;
   },
 
+  /**
+   * Todos los clubes del país (sin tope): las ofertas de onboarding y los
+   * candidatos de traspaso se sortean por prestigio en domain (D7/Sprint B).
+   */
   async findByPais(pais: string): Promise<Club[]> {
     const db = await getDb();
     const filas = await db.getAllAsync<ClubRow>(
-      `SELECT * FROM club WHERE pais = ? ORDER BY prestigio DESC LIMIT 3`,
+      `SELECT * FROM club WHERE pais = ? ORDER BY prestigio DESC, nombre ASC`,
       pais,
     );
     return filas.map(filaToClub);

@@ -8,7 +8,7 @@ import { clubRepository } from '@/data/repositories/club-repository';
 import { obtenerCalendarioTemporada } from '@/services/calendarService';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 import { formatearFechaCorta, formatearMesAnio } from '@/shared/utils/fechas';
 

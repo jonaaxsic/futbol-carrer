@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Club } from '@/domain/entities/club';
+import { sortearClubesPonderado } from '@/domain/rules/temporada';
 import { CAREER_START_AGE, OVR_START } from '@/shared/constants/game';
 import { clubRepository } from '@/data/repositories/club-repository';
 import { iniciarCarrera } from '@/services/careerService';
@@ -15,7 +16,7 @@ import {
   SecondaryButton,
 } from '@/presentation/components/atoms/button';
 import { ProgressStepBar } from '@/presentation/components/atoms/progress-step-bar';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
@@ -40,8 +41,13 @@ export default function ClubScreen() {
     (async () => {
       try {
         const clubes = pais ? await clubRepository.findByPais(pais) : [];
+        // Sorteo ponderado por prestigio (Sprint B): 3 ofertas distintas que
+        // favorecen a los grandes pero no son siempre las mismas.
+        const ofertas = sortearClubesPonderado(clubes, 3).sort(
+          (a, b) => b.prestigio - a.prestigio || a.id - b.id,
+        );
         if (activo) {
-          setOfertas(clubes);
+          setOfertas(ofertas);
           setCargando(false);
         }
       } catch (e) {

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -25,6 +25,7 @@ import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton } from '@/presentation/components/atoms/button';
+import { GoalBanner } from '@/presentation/components/organisms/goal-banner';
 import { colors, fontSize, radius, spacing } from '@/presentation/theme';
 
 /** Pausa narrada entre 1T y 2T (real, no suma al reloj de partido). */
@@ -62,10 +63,12 @@ export default function MatchScreen() {
   const [penalActivo, setPenalActivo] = useState<EventoTimeline | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ texto: string; nombre: string; minuto: number } | null>(null);
 
   const relojRef = useRef(0);
   const indiceRef = useRef(0);
   const minutoRef = useRef(0);
+  const golesAnunciadosRef = useRef(0);
   const descansoHechoRef = useRef(false);
   const faseRef = useRef<Fase>('jugando');
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -200,6 +203,23 @@ export default function MatchScreen() {
     }, [sesion, reanudar, pausar]),
   );
 
+  // Banner de gol (Sprint C): anuncia cada gol nuestro al materializarse.
+  useEffect(() => {
+    if (fase === 'final' || !sesion) return;
+    const nuestros = visibles.filter((e) => e.tipo === 'gol' && e.equipo === 'nosotros');
+    if (nuestros.length > golesAnunciadosRef.current) {
+      golesAnunciadosRef.current = nuestros.length;
+      const variantes = ['¡GOL!', '¡GOOOOL!', '¡GOLAZO!'] as const;
+      const gol = nuestros[nuestros.length - 1];
+      setBanner({
+        texto: variantes[(nuestros.length - 1) % variantes.length],
+        nombre: sesion.jugador.nombre,
+        minuto: gol.minuto,
+      });
+      setTimeout(() => setBanner(null), 800);
+    }
+  }, [visibles, fase, sesion]);
+
   // Pausa segura al backgroundar la app (spec R1: no corrompe timeline).
   useEffect(() => {
     const sub = AppState.addEventListener('change', (estado) => {
@@ -286,21 +306,23 @@ export default function MatchScreen() {
           </AppText>
         </View>
 
-        {/* Feed de eventos materializados */}
-        <View style={styles.feed}>
-          {visibles.slice(-4).map((e, i) => (
-            <View key={`${e.minuto}-${i}`} style={styles.evento}>
-              <Ionicons
-                name={ICONO_EVENTO[e.tipo]}
-                size={14}
-                color={e.equipo === 'nosotros' ? colors.success : colors.danger}
-              />
-              <AppText variant="caption" style={styles.eventoTexto} numberOfLines={2}>
-                {`${e.minuto}' · ${e.descripcion}`}
-              </AppText>
-            </View>
-          ))}
-        </View>
+        {/* Feed de eventos materializados (oculto en el scorecard final) */}
+        {fase !== 'final' && (
+          <View style={styles.feed}>
+            {visibles.slice(-4).map((e, i) => (
+              <View key={`${e.minuto}-${i}`} style={styles.evento}>
+                <Ionicons
+                  name={ICONO_EVENTO[e.tipo]}
+                  size={14}
+                  color={e.equipo === 'nosotros' ? colors.success : colors.danger}
+                />
+                <AppText variant="caption" style={styles.eventoTexto} numberOfLines={2}>
+                  {`${e.minuto}' · ${e.descripcion}`}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        )}
 
         {error && <AppText variant="caption" color="danger">{error}</AppText>}
 
@@ -339,9 +361,12 @@ export default function MatchScreen() {
           </View>
         )}
 
-        {/* Scorecard final (spec R3/R4) */}
+        {/* Scorecard final (spec R3/R4): scroll por si el contenido excede la pantalla */}
         {fase === 'final' && resultado && (
-          <View style={styles.scorecard}>
+          <ScrollView
+            style={styles.scorecardWrap}
+            contentContainerStyle={styles.scorecard}
+            showsVerticalScrollIndicator={false}>
             <AppText variant="heading" uppercase>
               {resultado.victoria ? 'Victoria' : resultado.empate ? 'Empate' : 'Derrota'}
             </AppText>
@@ -384,9 +409,17 @@ export default function MatchScreen() {
               onPress={continuar}
               disabled={guardando}
             />
-          </View>
+          </ScrollView>
         )}
       </View>
+
+      {/* Banner de gol (Sprint C) — overlay breve, no bloquea el flujo */}
+      <GoalBanner
+        visible={banner != null}
+        texto={banner?.texto ?? '¡GOL!'}
+        nombre={banner?.nombre ?? ''}
+        minuto={banner?.minuto ?? 0}
+      />
     </SafeAreaView>
   );
 }
@@ -507,8 +540,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pressed: { opacity: 0.7 },
-  scorecard: {
+  scorecardWrap: {
     flex: 1,
+  },
+  scorecard: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,

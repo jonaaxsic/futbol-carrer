@@ -42,17 +42,17 @@ export const COUNTRIES = [
 
 export type Country = (typeof COUNTRIES)[number];
 
-/** Nombre de la liga de cada país (para fixtures y ofertas). */
+/** Nombre real de la primera división de cada país (para fixtures y ofertas). */
 export const LIGAS_POR_PAIS: Record<Country, string> = {
-  Chile: 'Liga Nacional',
+  Chile: 'Primera División',
   Argentina: 'Liga Profesional',
   Brasil: 'Serie A',
   Uruguay: 'Primera División',
-  Colombia: 'Categoría Primera',
+  Colombia: 'Categoría Primera A',
   México: 'Liga MX',
   Perú: 'Liga 1',
   Paraguay: 'Primera División',
-  Ecuador: 'Serie A',
+  Ecuador: 'LigaPro Serie A',
   España: 'La Liga',
   Portugal: 'Primeira Liga',
   Inglaterra: 'Premier League',

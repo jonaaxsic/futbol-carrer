@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText } from './app-text';
+import { AppText } from '@/presentation/components/atoms/app-text';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 type ScreenContainerProps = {
@@ -13,14 +13,30 @@ type ScreenContainerProps = {
   title?: string;
   /** Footer fijo al pie (VOLVER/CONTINUAR del wireframe). */
   footer?: ReactNode;
+  /**
+   * Habilita scroll vertical del contenido (pantallas largas: dashboard,
+   * fixture). Activo SOLO si el contenido requiere scroll; el footer y el
+   * header quedan fijos.
+   */
+  scrollable?: boolean;
+  /** Estilo del contenedor de contenido (o del contentContainer del ScrollView). */
   style?: ViewStyle;
+  contentContainerStyle?: ViewStyle;
 };
 
 /**
  * Contenedor base de pantalla: fondo oscuro, safe area,
  * header opcional con volver (flecha) y footer opcional fijo.
+ * Con `scrollable` el contenido va dentro de un ScrollView.
  */
-export function ScreenContainer({ children, title, footer, style }: ScreenContainerProps) {
+export function ScreenContainer({
+  children,
+  title,
+  footer,
+  scrollable = false,
+  style,
+  contentContainerStyle,
+}: ScreenContainerProps) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {title != null && (
@@ -40,7 +56,15 @@ export function ScreenContainer({ children, title, footer, style }: ScreenContai
         </View>
       )}
 
-      <View style={[styles.content, style]}>{children}</View>
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, style, contentContainerStyle]}
+          showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, style]}>{children}</View>
+      )}
 
       {footer != null && <View style={styles.footer}>{footer}</View>}
     </SafeAreaView>

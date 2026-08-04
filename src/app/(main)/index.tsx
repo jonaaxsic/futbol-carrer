@@ -18,7 +18,7 @@ import {
   omitirPartido,
   obtenerCalendarioTemporada,
 } from '@/services/calendarService';
-import { cerrarTemporada } from '@/services/seasonService';
+import { proponerCierre, finalizarCierre } from '@/services/seasonService';
 import { iniciarPartido } from '@/services/partidoService';
 import {
   energiaActual,
@@ -31,8 +31,8 @@ import { useCierreStore } from '@/state/useCierreStore';
 import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
 import { usePartidoVistaStore } from '@/state/usePartidoVistaStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { PrimaryButton } from '@/presentation/components/atoms/button';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { MatchAlertBanner } from '@/presentation/components/molecules/match-alert-banner';
 import { colors, radius, spacing } from '@/presentation/theme';
 
@@ -48,6 +48,7 @@ export default function DashboardScreen() {
   const setPlayer = usePlayerStore((s) => s.setPlayer);
   const setTemporadaActiva = usePlayerStore((s) => s.setTemporadaActiva);
   const fijarCierre = useCierreStore((s) => s.fijar);
+  const fijarPropuesta = useCierreStore((s) => s.fijarPropuesta);
   const fijarSesion = usePartidoEnCursoStore((s) => s.fijar);
   const bannerOculto = usePartidoVistaStore((s) => s.bannerOculto);
   const ocultarBanner = usePartidoVistaStore((s) => s.ocultarBanner);
@@ -180,12 +181,23 @@ export default function DashboardScreen() {
     setTemporadaActiva(temporadaFresca);
     setOcupado(true);
     try {
-      const cierre = await cerrarTemporada(player, temporadaFresca, club, player.pais);
-      fijarCierre(cierre);
-      setPlayer(cierre.player);
-      setTemporadaActiva(cierre.nuevaTemporada);
-      setResultados([]);
-      router.push('/season-summary');
+      // D6: primero se propone (solo calcula, no persiste); la decisión de
+      // club es del usuario. Sin oferta → se finaliza directo (flujo previo).
+      const propuesta = await proponerCierre(player, temporadaFresca, club, player.pais);
+      if (propuesta.candidatos.length === 0) {
+        const cierre = await finalizarCierre(propuesta, { tipo: 'quedarse' });
+        fijarCierre(cierre);
+        setPlayer(cierre.player);
+        setTemporadaActiva(cierre.nuevaTemporada);
+        setResultados([]);
+        router.push('/season-summary');
+      } else {
+        // Hay oferta: el usuario elige en /club-oferta (spec club-transfer R1).
+        fijarPropuesta(propuesta);
+        router.push('/club-oferta');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cerrar la temporada');
     } finally {
       setOcupado(false);
     }
@@ -195,8 +207,7 @@ export default function DashboardScreen() {
   const proxima = proximaBarraEn(player);
 
   return (
-    <ScreenContainer>
-      <View style={styles.content}>
+    <ScreenContainer scrollable contentContainerStyle={styles.content}>
         {cargando && <ActivityIndicator color={colors.textPrimary} style={styles.carga} />}
 
         {/* Identidad */}
@@ -351,6 +362,7 @@ export default function DashboardScreen() {
         )}
 
         <View style={styles.actions}>
+          <SecondaryButton label="Entrenar" onPress={() => router.push('/training')} />
           {pendientes.length === 0 ? (
             <PrimaryButton label="Cerrar temporada" onPress={cerrar} disabled={ocupado} />
           ) : (
@@ -359,7 +371,6 @@ export default function DashboardScreen() {
             </AppText>
           )}
         </View>
-      </View>
     </ScreenContainer>
   );
 }
@@ -431,7 +442,7 @@ function lineaDesdeEventosJson(json: string | null): EventoTimeline[] {
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.md,

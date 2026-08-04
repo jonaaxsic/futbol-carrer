@@ -6,6 +6,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import type { Formacion, SlotFormacion } from '@/domain/value-objects/formacion';
 import { posicionEnFormacion } from '@/domain/value-objects/formacion';
@@ -14,11 +15,13 @@ import { AppText } from '@/presentation/components/atoms/app-text';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
- * Organismo: cancha táctica reutilizable (spec formations R3/R5).
+ * Organismo: cancha táctica estilo Copero (Sprint A, plan punto 4).
+ * - Fondo SVG con líneas reales: mitad, círculo central, áreas grande y
+ *   chica, arcos de penal; césped con franjas horizontales alternadas.
  * - Modo `seleccionar` (cuando onSeleccionar existe): el once propio
- *   bottom-up, slots tocables, la selección resaltada.
- * - Modo `ver` (sin onSeleccionar): dibuja el once propio y opcionalmente
- *   el rival (flip vertical: top-down), destacando la posición del jugador.
+ *   bottom-up, slots tocables en píldoras, la selección resaltada.
+ * - Modo `ver` (sin onSeleccionar): once propio + opcional rival
+ *   (flip vertical: top-down), destacando la posición del jugador.
  *
  * Coordenadas del slot: x ∈ [0,1] izquierda→derecha, y ∈ [0,1] propio arco→rival.
  */
@@ -34,9 +37,13 @@ export interface FormationPitchProps {
   onSeleccionar?: (p: Posicion) => void;
 }
 
+/** Franjas horizontales del césped (alternan pitch / pitchAlt). */
+const FRANJAS_CESPED = 8;
+
 const marcaLeft = (x: number): `${number}%` => `${x * 100}%`;
 const marcaTop = (y: number): `${number}%` => `${(1 - y) * 100}%`;
 
+/** Píldora de posición (SVG-texto de la propuesta; aquí AppText sobre pill RN). */
 function Chip({ slot, activo, onPress }: { slot: SlotFormacion; activo: boolean; onPress?: () => void }) {
   const contenido = (
     <View style={[styles.chip, activo && styles.chipActivo]}>
@@ -92,6 +99,41 @@ function renderOnce({
   });
 }
 
+/** Líneas de campo SVG (viewBox 100x133, proporción 3:4 vertical). */
+function LineasCancha() {
+  return (
+    <Svg viewBox="0 0 100 133" style={StyleSheet.absoluteFill} pointerEvents="none">
+      {/* Césped con franjas horizontales */}
+      {Array.from({ length: FRANJAS_CESPED }, (_, i) => (
+        <Rect
+          key={i}
+          x="0"
+          y={i * (133 / FRANJAS_CESPED)}
+          width="100"
+          height={133 / FRANJAS_CESPED}
+          fill={i % 2 === 0 ? colors.pitch : colors.pitchAlt}
+        />
+      ))}
+
+      {/* Línea perimetral */}
+      <Rect x="1" y="1" width="98" height="131" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Mitad de cancha */}
+      <Line x1="50" y1="1" x2="50" y2="132" stroke={colors.pitchLine} strokeWidth="1" />
+      {/* Círculo central */}
+      <Circle cx="50" cy="66.5" r="10" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Áreas grandes (arriba = arco rival) */}
+      <Rect x="25" y="1" width="50" height="20" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      <Rect x="25" y="112" width="50" height="20" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Áreas chicas */}
+      <Rect x="35" y="1" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      <Rect x="35" y="124" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Arcos de penal (semicírculos hacia cada arco) */}
+      <Path d="M31.7 21 A18.3 18.3 0 0 1 68.3 21" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      <Path d="M31.7 112 A18.3 18.3 0 0 0 68.3 112" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+    </Svg>
+  );
+}
+
 export function FormationPitch({
   formacion,
   rival = null,
@@ -128,8 +170,8 @@ export function FormationPitch({
 
   return (
     <View style={styles.pitch}>
-      <View style={styles.pitchLine} />
-      <View style={styles.pitchCircle} />
+      {/* Fondo + líneas SVG (Copero) */}
+      <LineasCancha />
 
       {/* Rival (modo ver): arriba del once, invertido */}
       {rival && !modoSeleccionar && (
@@ -168,44 +210,23 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.pitchLine,
-    padding: spacing.md,
     overflow: 'hidden',
     position: 'relative',
   },
-  pitchLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '50%',
-    width: 1,
-    backgroundColor: colors.pitchLine,
-  },
-  pitchCircle: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 72,
-    height: 72,
-    marginLeft: -36,
-    marginTop: -36,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.pitchLine,
-  },
   slot: {
     position: 'absolute',
-    width: 46,
-    height: 32,
-    marginLeft: -23,
-    marginTop: -16,
+    width: 52,
+    height: 28,
+    marginLeft: -26,
+    marginTop: -14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chip: {
     width: '100%',
     height: '100%',
-    borderRadius: radius.sm,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(13,13,13,0.55)',
     borderWidth: 1,
     borderColor: colors.pitchLine,
     alignItems: 'center',
@@ -220,13 +241,13 @@ const styles = StyleSheet.create({
   },
   marker: {
     position: 'absolute',
-    width: 58,
-    height: 42,
-    marginLeft: -29,
-    marginTop: -21,
-    borderRadius: radius.md,
+    width: 60,
+    height: 36,
+    marginLeft: -30,
+    marginTop: -18,
+    borderRadius: radius.pill,
     borderWidth: 2,
     borderColor: colors.accent,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
 });

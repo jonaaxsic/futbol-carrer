@@ -92,3 +92,50 @@ export function hayOfertaMejorClub(datos: DatosCierre): boolean {
   const rnd = datos.random ?? Math.random;
   return rnd() < clamp((datos.ovr - 74) * 0.03, 0.1, 0.7);
 }
+
+/**
+ * Sorteo ponderado por prestigio SIN reemplazo: los grandes (prestigio alto)
+ * pesan prestigio^2, pero los modestos también pueden aparecer. Puro:
+ * `rnd` inyectable para tests. Devuelve hasta `cantidad` clubes distintos.
+ */
+export function sortearClubesPonderado<T extends { prestigio: number }>(
+  clubes: T[],
+  cantidad: number,
+  rnd: () => number = Math.random,
+): T[] {
+  const pool = [...clubes];
+  const elegidos: T[] = [];
+  while (elegidos.length < cantidad && pool.length > 0) {
+    const pesos = pool.map((c) => Math.max(1, c.prestigio) ** 2);
+    const total = pesos.reduce((a, b) => a + b, 0);
+    let t = rnd() * total;
+    let idx = pesos.length - 1;
+    for (let i = 0; i < pesos.length; i++) {
+      t -= pesos[i];
+      if (t <= 0) {
+        idx = i;
+        break;
+      }
+    }
+    elegidos.push(pool[idx]);
+    pool.splice(idx, 1);
+  }
+  return elegidos;
+}
+
+/**
+ * Selecciona 2-3 clubes candidatos con prestigio ESTRICTAMENTE mayor al actual
+ * (spec club-transfer R1: choice de 2-3). Sorteo ponderado sobre el conjunto
+ * elegible: varía entre temporadas (no siempre los mismos) pero los grandes
+ * dominan. Puro: sin SQLite ni React; `rnd` inyectable para tests.
+ */
+export function seleccionarCandidatos<T extends { id: number; prestigio: number }>(
+  clubes: T[],
+  prestigioActual: number,
+  rnd: () => number = Math.random,
+): T[] {
+  const elegibles = clubes
+    .filter((c) => c.prestigio > prestigioActual)
+    .sort((a, b) => b.prestigio - a.prestigio || a.id - b.id);
+  return sortearClubesPonderado(elegibles, 3, rnd);
+}

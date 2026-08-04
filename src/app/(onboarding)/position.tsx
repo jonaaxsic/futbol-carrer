@@ -11,7 +11,7 @@ import {
   SecondaryButton,
 } from '@/presentation/components/atoms/button';
 import { ProgressStepBar } from '@/presentation/components/atoms/progress-step-bar';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { FormationPitch } from '@/presentation/components/organisms/formation-pitch';
 import { colors, radius, spacing } from '@/presentation/theme';
 

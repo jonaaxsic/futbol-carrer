@@ -6,7 +6,7 @@ import type { EventoLog } from '@/domain/entities/evento-log';
 import { eventoLogRepository } from '@/data/repositories/evento-log-repository';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 import { formatearFechaLarga } from '@/shared/utils/fechas';
 
