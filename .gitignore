@@ -44,3 +44,4 @@ example
 
 # local tooling cache (opencode skill registry)
 src/.atl/
+.atl/

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 
 import { useOnboardingStore } from '@/state/useOnboardingStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
@@ -9,7 +10,8 @@ import {
   SecondaryButton,
 } from '@/presentation/components/atoms/button';
 import { ProgressStepBar } from '@/presentation/components/atoms/progress-step-bar';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { JerseyPreview } from '@/presentation/components/molecules/jersey-preview';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 type Pierna = 'izquierda' | 'derecha';
@@ -20,11 +22,14 @@ type Pierna = 'izquierda' | 'derecha';
  * Sprint 2: al confirmar, se guarda en el borrador del jugador.
  */
 export default function IdentityScreen() {
-  const identidad = useOnboardingStore((s) => ({
-    nombre: s.nombre,
-    numero: s.numero,
-    pierna: s.pierna,
-  }));
+  const identidad = useOnboardingStore(
+    useShallow((s) => ({
+      nombre: s.nombre,
+      numero: s.numero,
+      pierna: s.pierna,
+      pais: s.pais,
+    })),
+  );
   const setIdentidad = useOnboardingStore((s) => s.setIdentidad);
 
   const [nombre, setNombre] = useState(identidad.nombre);
@@ -66,15 +71,14 @@ export default function IdentityScreen() {
           Paso 2 de 4 · Así lucirá tu camiseta
         </AppText>
 
-        {/* Vista previa de camiseta (JerseyPreview en vivo) */}
+        {/* Vista previa de camiseta (JerseyPreview SVG en vivo, Sprint A) */}
         <View style={styles.jersey}>
-          <AppText variant="label" uppercase color="textSecondary">
-            {(nombre.trim() || 'APELLIDO').toUpperCase()}
-          </AppText>
-          <AppText variant="title" style={styles.jerseyNumber}>
-            {numeroMostrado}
-          </AppText>
-          <View style={styles.jerseySleeves} />
+          <JerseyPreview
+            nombre={nombre.trim() || 'APELLIDO'}
+            numero={numeroMostrado}
+            pais={identidad.pais}
+            tamaño={170}
+          />
         </View>
 
         <AppText variant="label" uppercase>
@@ -148,23 +152,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingVertical: spacing.xl,
     alignItems: 'center',
-    gap: spacing.xs,
     marginBottom: spacing.lg,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  jerseySleeves: {
-    position: 'absolute',
-    top: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
-    height: 3,
-    backgroundColor: colors.border,
-  },
-  jerseyNumber: {
-    fontSize: 64,
-    lineHeight: 68,
-    color: colors.textPrimary,
   },
   input: {
     backgroundColor: colors.surface,

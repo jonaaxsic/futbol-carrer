@@ -7,7 +7,13 @@ import {
   elegirEvento,
   PROBABILIDAD_EVENTO,
 } from '@/domain/rules/eventos';
-import { simularPartido, type ResultadoSimulacion } from '@/domain/rules/partido';
+import {
+  resultadoDesdeLineaTiempo,
+  resolverPenalInaccion,
+  simularPartido,
+  type EventoTimeline,
+  type ResultadoSimulacion,
+} from '@/domain/rules/partido';
 import { formaDesdeEnergia } from '@/domain/rules/energia';
 import { OVR_MAX } from '@/shared/constants/game';
 
@@ -21,11 +27,15 @@ import {
 } from '@/services/energiaService';
 
 /**
- * Caso de uso: jugar un partido del fixture.
- * Simula el resultado con la regla pura, persiste resultado + situaciones
- * (penales, rojas, lesiones...) en eventos_json, acumula en la temporada,
- * ajusta el OVR por rendimiento y decide si ocurre un evento narrativo
- * posterior (pantalla 11).
+ * Caso de uso: jugar un partido del fixture (design D2: split en dos pasos).
+ *
+ * - `iniciarPartido`: valida/consume energía (−ENERGIA_PARTIDO), simula la
+ *   timeline determinista y la persiste ANTES del replay (eventos_json).
+ * - `finalizarPartido`: toma la timeline RESUELTA (tras el mini-juego de
+ *   penal en /match), deriva el resultado SIN re-simular (spec penalty R2),
+ *   persiste resultado + stats, ajusta OVR, suspende si corresponde.
+ * - `jugarPartido`: wrapper compatible (flujo actual del dashboard): inicia,
+ *   resuelve penales pendientes de forma automática y finaliza.
  *
  * ENERGÍA (§4.2): jugar cuesta ENERGIA_PARTIDO barras. Además, si el jugador
  * se lesiona o es expulsado, se PIERDE el próximo partido (suspendido).
@@ -40,6 +50,15 @@ export interface ResultadoPartidoJugado {
   eventoPosterior: EventoNarrativo | null;
 }
 
+/** Contenido de una sesión de partido iniciada (lo consume /match, PR3). */
+export interface PartidoEnCurso {
+  partido: Partido;
+  temporada: Temporada;
+  clubRival: Club;
+  jugador: Player;
+  lineaTiempo: EventoTimeline[];
+}
+
 /** Bonus de OVR por rendimiento individual en el partido (máx +1). */
 function bonusOvr(goles: number, asistencias: number): number {
   if (goles >= 1) return 1;
@@ -47,14 +66,22 @@ function bonusOvr(goles: number, asistencias: number): number {
   return 0;
 }
 
-export async function jugarPartido(
+/** Serializa la timeline en el formato persistido (design D1). */
+function eventosJsonDeLinea(lineaTiempo: EventoTimeline[]): string {
+  return JSON.stringify({ lineaTiempo });
+}
+
+/**
+ * Paso 1: valida energía, la consume y persiste la timeline ANTES del replay.
+ * Devuelve la sesión completa para que el replayer (PR3) la replique.
+ */
+export async function iniciarPartido(
   player: Player,
   temporada: Temporada,
   partido: Partido,
   clubRival: Club,
-  opciones: { conEvento?: boolean; consumirEnergia?: boolean } = {},
-): Promise<ResultadoPartidoJugado> {
-  const conEvento = opciones.conEvento ?? true;
+  opciones: { consumirEnergia?: boolean } = {},
+): Promise<PartidoEnCurso> {
   const consumir = opciones.consumirEnergia ?? true;
 
   // Energía: suma POR PARTIDO, con regen por tiempo (regla §4.2).
@@ -74,15 +101,37 @@ export async function jugarPartido(
     forma: formaDesdeEnergia(energiaInicio),
   });
 
-  const eventosJson = JSON.stringify({
-    golesJugador: simulacion.golesJugador,
-    asistenciasJugador: simulacion.asistenciasJugador,
-    amarilla: simulacion.amarilla,
-    roja: simulacion.roja,
-    lesion: simulacion.lesion,
-    suspendidoProximo: simulacion.suspendidoProximo,
-    situaciones: simulacion.situaciones,
-  });
+  // D1: la timeline se persiste UNA vez al inicio (replay estable, sobrevive
+  // backgrounding; nunca se regenera).
+  await partidoRepository.guardarTimeline(partido.id, eventosJsonDeLinea(simulacion.lineaTiempo));
+
+  return {
+    partido,
+    temporada,
+    clubRival,
+    jugador: player,
+    lineaTiempo: simulacion.lineaTiempo,
+  };
+}
+
+/**
+ * Paso 2: persiste el resultado derivado de la timeline RESUELTA, acumula
+ * stats de temporada, ajusta OVR y decide suspensión/evento posterior.
+ */
+export async function finalizarPartido(
+  player: Player,
+  temporada: Temporada,
+  partido: Partido,
+  clubRival: Club,
+  lineaTiempoResuelta: EventoTimeline[],
+  opciones: { conEvento?: boolean } = {},
+): Promise<ResultadoPartidoJugado> {
+  const conEvento = opciones.conEvento ?? true;
+
+  // Spec penalty R2: el resultado se DERIVA de la timeline resuelta (los
+  // penales interactivos ya tienen resultado); nunca se re-simula.
+  const simulacion = resultadoDesdeLineaTiempo(lineaTiempoResuelta);
+  const eventosJson = eventosJsonDeLinea(lineaTiempoResuelta);
 
   await partidoRepository.marcarJugado(
     partido.id,
@@ -147,6 +196,44 @@ export async function jugarPartido(
     jugadorActualizado: player,
     eventoPosterior,
   };
+}
+
+/**
+ * Persiste la timeline (posiblemente mutada por el mini-juego de penal) sin
+ * marcar el partido como jugado (design D1: el replay sobrevive al fondo).
+ */
+export async function guardarLineaTiempo(partidoId: number, lineaTiempo: EventoTimeline[]): Promise<void> {
+  await partidoRepository.guardarTimeline(partidoId, eventosJsonDeLinea(lineaTiempo));
+}
+
+/**
+ * Wrapper compatible (flujo actual del dashboard, se reemplaza en PR3):
+ * inicia, resuelve los penales interactivos pendientes de forma automática
+ * (sin input → fallado, spec R5) y finaliza.
+ */
+export async function jugarPartido(
+  player: Player,
+  temporada: Temporada,
+  partido: Partido,
+  clubRival: Club,
+  opciones: { conEvento?: boolean; consumirEnergia?: boolean } = {},
+): Promise<ResultadoPartidoJugado> {
+  const conEvento = opciones.conEvento ?? true;
+  const consumir = opciones.consumirEnergia ?? true;
+
+  const enCurso = await iniciarPartido(player, temporada, partido, clubRival, { consumirEnergia: consumir });
+  const lineaResuelta = resolverPenalInaccion(enCurso.lineaTiempo);
+  const resultado = await finalizarPartido(
+    enCurso.jugador,
+    temporada,
+    partido,
+    clubRival,
+    lineaResuelta,
+    { conEvento },
+  );
+
+  // El partido vuelve con el resultado derivado (no el simulado al inicio).
+  return resultado;
 }
 
 export type { Player, Temporada, Partido };

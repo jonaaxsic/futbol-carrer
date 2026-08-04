@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
@@ -8,12 +8,18 @@ import type { Partido } from '@/domain/entities/partido';
 import type {
   ResultadoSimulacion,
   SituacionPartido,
+  EventoTimeline,
 } from '@/domain/rules/partido';
+import { resultadoDesdeLineaTiempo } from '@/domain/rules/partido';
 import { clubRepository } from '@/data/repositories/club-repository';
 import { temporadaRepository } from '@/data/repositories/temporada-repository';
-import { obtenerProximosPartidos, omitirPartido } from '@/services/calendarService';
-import { cerrarTemporada } from '@/services/seasonService';
-import { jugarPartido } from '@/services/partidoService';
+import {
+  obtenerProximosPartidos,
+  omitirPartido,
+  obtenerCalendarioTemporada,
+} from '@/services/calendarService';
+import { proponerCierre, finalizarCierre } from '@/services/seasonService';
+import { iniciarPartido } from '@/services/partidoService';
 import {
   energiaActual,
   proximaBarraEn,
@@ -22,9 +28,12 @@ import {
 import { formatearFechaCorta } from '@/shared/utils/fechas';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { useCierreStore } from '@/state/useCierreStore';
+import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
+import { usePartidoVistaStore } from '@/state/usePartidoVistaStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { PrimaryButton } from '@/presentation/components/atoms/button';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
+import { MatchAlertBanner } from '@/presentation/components/molecules/match-alert-banner';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
@@ -39,6 +48,10 @@ export default function DashboardScreen() {
   const setPlayer = usePlayerStore((s) => s.setPlayer);
   const setTemporadaActiva = usePlayerStore((s) => s.setTemporadaActiva);
   const fijarCierre = useCierreStore((s) => s.fijar);
+  const fijarPropuesta = useCierreStore((s) => s.fijarPropuesta);
+  const fijarSesion = usePartidoEnCursoStore((s) => s.fijar);
+  const bannerOculto = usePartidoVistaStore((s) => s.bannerOculto);
+  const ocultarBanner = usePartidoVistaStore((s) => s.ocultarBanner);
 
   const [club, setClub] = useState<Club | null>(null);
   const [pendientes, setPendientes] = useState<Partido[]>([]);
@@ -60,9 +73,10 @@ export default function DashboardScreen() {
   const cargar = useCallback(async () => {
     if (!player || !temporadaActiva) return;
     try {
-      const [clubData, partidos] = await Promise.all([
+      const [clubData, partidos, calendario] = await Promise.all([
         player.clubId ? clubRepository.findById(player.clubId) : Promise.resolve(null),
         obtenerProximosPartidos(temporadaActiva.id, 0, 100),
+        obtenerCalendarioTemporada(temporadaActiva.id),
       ]);
       setClub(clubData);
       setPendientes(partidos);
@@ -75,14 +89,38 @@ export default function DashboardScreen() {
         }),
       );
       setRivales(mapa);
+
+      // Último partido jugado → tarjeta de resultado (al volver del /match).
+      const jugados = calendario
+        .filter((p) => p.jugo && p.eventosJson)
+        .sort((a, b) => b.fechaTs - a.fechaTs);
+      const ultimo = jugados[0];
+      if (ultimo) {
+        const linea = lineaDesdeEventosJson(ultimo.eventosJson);
+        if (linea.length > 0) {
+          const c = await clubRepository.findById(ultimo.rivalClubId);
+          setResultados([
+            {
+              partido: ultimo,
+              simulacion: resultadoDesdeLineaTiempo(linea),
+              rivalNombre: c?.nombre ?? '—',
+            },
+          ]);
+        }
+      } else {
+        setResultados([]);
+      }
     } finally {
       setCargando(false);
     }
   }, [player, temporadaActiva]);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  // Carga inicial + recarga al volver del /match (spec R5: dashboard siempre).
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
   const energia = player ? energiaActual(player) : 0;
   const primerPartido = pendientes[0];
@@ -107,23 +145,14 @@ export default function DashboardScreen() {
     setOcupado(true);
     setError(null);
     try {
-      const resultado = await jugarPartido(player, temporadaActiva, p, rival, {
-        conEvento: false,
+      // PR3: inicia (energía + timeline persistida) y abre el replayer /match.
+      const sesion = await iniciarPartido(player, temporadaActiva, p, rival, {
+        consumirEnergia: true,
       });
-      setPlayer(resultado.jugadorActualizado);
-      setResultados((prev) =>
-        [
-          { partido: resultado.partidoActualizado, simulacion: resultado.simulacion, rivalNombre: rival.nombre },
-          ...prev,
-        ].slice(0, 3),
-      );
-      if (resultado.eventoPosterior) {
-        // El dashboard juega partido por partido: el evento narra POST se
-        // resuelve en el cierre de temporada (flujo Copero).
-      }
-      await cargar();
+      fijarSesion(sesion);
+      router.push('/match');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo jugar el partido');
+      setError(e instanceof Error ? e.message : 'No se pudo iniciar el partido');
     } finally {
       setOcupado(false);
     }
@@ -152,12 +181,23 @@ export default function DashboardScreen() {
     setTemporadaActiva(temporadaFresca);
     setOcupado(true);
     try {
-      const cierre = await cerrarTemporada(player, temporadaFresca, club, player.pais);
-      fijarCierre(cierre);
-      setPlayer(cierre.player);
-      setTemporadaActiva(cierre.nuevaTemporada);
-      setResultados([]);
-      router.push('/season-summary');
+      // D6: primero se propone (solo calcula, no persiste); la decisión de
+      // club es del usuario. Sin oferta → se finaliza directo (flujo previo).
+      const propuesta = await proponerCierre(player, temporadaFresca, club, player.pais);
+      if (propuesta.candidatos.length === 0) {
+        const cierre = await finalizarCierre(propuesta, { tipo: 'quedarse' });
+        fijarCierre(cierre);
+        setPlayer(cierre.player);
+        setTemporadaActiva(cierre.nuevaTemporada);
+        setResultados([]);
+        router.push('/season-summary');
+      } else {
+        // Hay oferta: el usuario elige en /club-oferta (spec club-transfer R1).
+        fijarPropuesta(propuesta);
+        router.push('/club-oferta');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cerrar la temporada');
     } finally {
       setOcupado(false);
     }
@@ -167,8 +207,7 @@ export default function DashboardScreen() {
   const proxima = proximaBarraEn(player);
 
   return (
-    <ScreenContainer>
-      <View style={styles.content}>
+    <ScreenContainer scrollable contentContainerStyle={styles.content}>
         {cargando && <ActivityIndicator color={colors.textPrimary} style={styles.carga} />}
 
         {/* Identidad */}
@@ -235,6 +274,17 @@ export default function DashboardScreen() {
         {error && (
           <AppText variant="caption" color="danger">{error}</AppText>
         )}
+
+        {/* Banner de match-day: partido jugable, sin auto-dismiss (spec R6) */}
+        {primerPartido != null &&
+          !primerPartido.suspendido &&
+          puedeJugarAhora &&
+          !bannerOculto && (
+            <MatchAlertBanner
+              onJugar={() => jugar(primerPartido)}
+              onOcultar={ocultarBanner}
+            />
+          )}
 
         {/* Próximos partidos */}
         <View style={styles.card}>
@@ -312,6 +362,7 @@ export default function DashboardScreen() {
         )}
 
         <View style={styles.actions}>
+          <SecondaryButton label="Entrenar" onPress={() => router.push('/training')} />
           {pendientes.length === 0 ? (
             <PrimaryButton label="Cerrar temporada" onPress={cerrar} disabled={ocupado} />
           ) : (
@@ -320,7 +371,6 @@ export default function DashboardScreen() {
             </AppText>
           )}
         </View>
-      </View>
     </ScreenContainer>
   );
 }
@@ -380,9 +430,19 @@ function formatearCorto(ms: number): string {
   return `${Math.floor(mins / 60)} h ${mins % 60} min`;
 }
 
+/** Recupera la timeline desde eventos_json persistido ({ lineaTiempo }). */
+function lineaDesdeEventosJson(json: string | null): EventoTimeline[] {
+  try {
+    const data = json ? (JSON.parse(json) as { lineaTiempo?: EventoTimeline[] }) : undefined;
+    return data?.lineaTiempo ?? [];
+  } catch {
+    return [];
+  }
+}
+
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: spacing.lg,
     gap: spacing.md,
     paddingBottom: spacing.md,

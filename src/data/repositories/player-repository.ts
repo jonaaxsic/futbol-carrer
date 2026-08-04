@@ -73,6 +73,11 @@ export const playerRepository: PlayerRepository = {
     await db.runAsync('UPDATE player SET club_id = ? WHERE id = ?', [clubId, id]);
   },
 
+  async setPosicion(id: number, posicion: string): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE player SET posicion = ? WHERE id = ?', [posicion, id]);
+  },
+
   async setTemporadaActual(id: number, temporada: number): Promise<void> {
     const db = await getDb();
     await db.runAsync('UPDATE player SET temporada_actual = ? WHERE id = ?', [temporada, id]);

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { ScreenContainer } from '@/presentation/components/atoms/screen-container';
+import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 import { ENERGIA_PARTIDO, ENERGIA_ENTRENAMIENTO } from '@/services/energiaService';
 import type { SeasonMode } from '@/shared/types';

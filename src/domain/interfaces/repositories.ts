@@ -21,6 +21,8 @@ export interface PlayerRepository {
   findActivo(): Promise<Player | null>;
   updateOvr(id: number, ovr: number): Promise<void>;
   setClub(id: number, clubId: number | null): Promise<void>;
+  /** Cambia la posición del jugador (solo vía flujo de cambio de club, D6). */
+  setPosicion(id: number, posicion: string): Promise<void>;
   /** Avanza el contador de temporada del jugador (Sprint 6). */
   setTemporadaActual(id: number, temporada: number): Promise<void>;
   /** Marca estado = 'retirado' (Sprint 7). */
@@ -92,6 +94,8 @@ export interface PartidoRepository {
     asistencias: number,
     eventosJson: string | null,
   ): Promise<void>;
+  /** Persiste la timeline del replay (design D1: se guarda al INICIAR el partido). */
+  guardarTimeline(id: number, eventosJson: string): Promise<void>;
   /** Marca suspendido un partido que el jugador se pierde (lesión/roja). */
   marcarSuspendido(id: number, motivo: string): Promise<void>;
   /** Omite definitivamente un partido suspendido (no suma stats). */

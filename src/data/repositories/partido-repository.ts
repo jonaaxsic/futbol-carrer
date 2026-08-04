@@ -46,6 +46,12 @@ export const partidoRepository: PartidoRepository = {
     );
   },
 
+  /** Persiste la timeline del replay sin marcar el partido como jugado (D1). */
+  async guardarTimeline(id: number, eventosJson: string): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE partido SET eventos_json = ? WHERE id = ?', [eventosJson, id]);
+  },
+
   /** Marca un partido como suspendido (lesión/expulsión): se omite sin stats. */
   async marcarSuspendido(id: number, motivo: string): Promise<void> {
     const db = await getDb();

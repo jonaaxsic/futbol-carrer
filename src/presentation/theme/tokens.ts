@@ -33,6 +33,8 @@ export const colors = {
 
   /** Verde cancha (PositionPitch) */
   pitch: '#1B6B3A',
+  /** Verde alterno de las franjas del césped (efecto "cortado") */
+  pitchAlt: '#1E7A40',
   pitchLine: '#2E8B57',
 } as const;
 

@@ -1,13 +1,16 @@
 import type { Club } from '@/domain/entities/club';
 import type { Player } from '@/domain/entities/player';
+import type { Posicion } from '@/domain/value-objects/posicion';
 import type { Temporada } from '@/domain/entities/temporada';
 import type { Trofeo, NivelTrofeo } from '@/domain/entities/trofeo';
 import {
   decidirTrofeos,
   esConvocado,
   hayOfertaMejorClub,
+  seleccionarCandidatos,
   trofeoSeleccion,
   type DatosCierre,
+  type TrofeoGanado,
 } from '@/domain/rules/temporada';
 import { checkRetirementConditions, type DecisionRetiro } from '@/domain/rules/retiro';
 import type { Country } from '@/shared/constants/game';
@@ -26,9 +29,11 @@ import { elegirEvento, type EventoNarrativo } from '@/domain/rules/eventos';
 import type { Partido } from '@/domain/entities/partido';
 
 /**
- * Caso de uso: cierre de temporada (§4.5 del plan).
- * Resumen → trofeos → convocatoria → oferta de mejor club → apertura de la
- * nueva temporada (modo normal avanza 1 año, rápido avanza 2).
+ * Caso de uso: cierre de temporada (§4.5 del plan, design D6).
+ * Dos pasos: `proponerCierre` (solo calcula: trofeos, convocatoria,
+ * candidatos, retiro, decisión) y `finalizarCierre` (persiste: cierra la
+ * temporada, aplica la DECISIÓN del usuario {cambio|quedarse}, setPosicion,
+ * regenera fixture y abre la siguiente).
  */
 
 export interface ResultadoCierreTemporada {
@@ -45,6 +50,25 @@ export interface ResultadoCierreTemporada {
   /** Condiciones de retiro evaluadas (§4.6): si seRetira, la carrera termina. */
   retiro: DecisionRetiro;
 }
+
+/** Propuesta de cierre: TODO lo calculable antes de la decisión del usuario. */
+export interface PropuestaCierre {
+  temporada: Temporada;
+  clubActual: Club;
+  player: Player;
+  /** 2-3 clubes mejores (spec club-transfer R1); [] si no hay oferta. */
+  candidatos: Club[];
+  trofeosGanados: TrofeoGanado[];
+  convocadoSeleccion: boolean;
+  trofeoSeleccionGanado: TrofeoGanado | null;
+  retiro: DecisionRetiro;
+  decision: EventoNarrativo | null;
+}
+
+/** Decisión del usuario al finalizar el cierre (D6). */
+export type DecisionCierre =
+  | { tipo: 'quedarse' }
+  | { tipo: 'cambio'; clubId: number; posicion: Posicion };
 
 /** Edad base al cerrar (16 + años transcurridos). */
 function calcularEdadNueva(player: Player, temporada: Temporada, modo: SeasonMode): number {
@@ -63,17 +87,15 @@ function ajustarOvrPorEdad(ovr: number, edadNueva: number, temporada: Temporada)
 }
 
 /**
- * Ejecuta el cierre completo. Se llama cuando no quedan partidos por jugar.
- * Ordena: decide trofeos → convocatoria → oferta → suma stats al historial →
- * cierra temporada → abre la siguiente → genera nuevo fixture → (opcional)
- * cambia de club si acepta la oferta.
+ * PASO 1 — Calcula todo el cierre sin persistir nada (spec R1: el club NO
+ * cambia sin la decisión del usuario). Devuelve la propuesta para /club-oferta.
  */
-export async function cerrarTemporada(
+export async function proponerCierre(
   player: Player,
   temporada: Temporada,
   clubActual: Club,
   pais: Country,
-): Promise<ResultadoCierreTemporada> {
+): Promise<PropuestaCierre> {
   const datosCierre: DatosCierre = {
     ovr: player.ovr,
     edad: player.edad,
@@ -83,8 +105,71 @@ export async function cerrarTemporada(
     prestigioClub: clubActual.prestigio,
   };
 
-  // 1) Trofeos de club + individuales.
-  const trofeosGanados = decidirTrofeos(datosCierre).map(async (t) =>
+  // 1) Trofeos de club + individuales (se persisten en finalizarCierre).
+  const trofeosGanados = decidirTrofeos(datosCierre);
+
+  // 2) Convocatoria a selección nacional.
+  const convocado = esConvocado(datosCierre);
+  const sel = convocado ? trofeoSeleccion(datosCierre) : null;
+
+  // 3) Oferta de mejor club → 2-3 candidatos (spec R1: choice, no automático).
+  let candidatos: Club[] = [];
+  if (hayOfertaMejorClub(datosCierre)) {
+    const mejores = await clubRepository.findByPais(pais);
+    candidatos = seleccionarCandidatos(mejores, clubActual.prestigio);
+  }
+
+  // 4) Edad/OVR proyectados + retiro (para la pantalla; se persiste al final).
+  const edadNueva = calcularEdadNueva(player, temporada, temporada.modo);
+  const ovrFin = ajustarOvrPorEdad(player.ovr, edadNueva, temporada);
+  const retiro = checkRetirementConditions({
+    edad: edadNueva,
+    ovr: ovrFin,
+    temporadasCompletadas: player.temporadaActual,
+    tieneOferta: candidatos.length > 0,
+  });
+
+  // 5) Decisión narrativa (1 por temporada, flujo Copero).
+  const decision =
+    Math.random() < 0.8
+      ? elegirEvento({
+          ovr: ovrFin,
+          posicion: player.posicion,
+          edad: edadNueva,
+          temporada: temporada.anioInicio,
+        })
+      : null;
+
+  return {
+    temporada,
+    clubActual,
+    player,
+    candidatos,
+    trofeosGanados,
+    convocadoSeleccion: convocado,
+    trofeoSeleccionGanado: sel,
+    retiro,
+    decision,
+  };
+}
+
+/**
+ * PASO 2 — Persiste el cierre aplicando la decisión del usuario.
+ * - 'quedarse': sigue en el club actual (spec R2).
+ * - 'cambio': setPosicion + setClub + regenera fixture (spec R4/R5).
+ */
+export async function finalizarCierre(
+  propuesta: PropuestaCierre,
+  decision: DecisionCierre,
+): Promise<ResultadoCierreTemporada> {
+  const { player, temporada, clubActual } = propuesta;
+  const clubNuevo =
+    decision.tipo === 'cambio'
+      ? (await clubRepository.findById(decision.clubId)) ?? null
+      : null;
+
+  // 1) Trofeos (calculados en la propuesta: misma semilla de decisión).
+  const trofeosCreados: Promise<Trofeo>[] = propuesta.trofeosGanados.map((t) =>
     trofeoRepository.crear({
       playerId: player.id,
       nombre: t.nombre,
@@ -93,44 +178,26 @@ export async function cerrarTemporada(
       nivel: t.nivel as NivelTrofeo,
     }),
   );
-
-  // 2) Convocatoria a selección nacional.
-  const convocado = esConvocado(datosCierre);
-  if (convocado) {
-    const sel = trofeoSeleccion(datosCierre);
-    if (sel) {
-      trofeosGanados.push(
-        trofeoRepository.crear({
-          playerId: player.id,
-          nombre: sel.nombre,
-          competencia: sel.competencia,
-          anio: temporada.anioInicio,
-          nivel: sel.nivel as NivelTrofeo,
-        }),
-      );
-    }
+  if (propuesta.convocadoSeleccion && propuesta.trofeoSeleccionGanado) {
+    const sel = propuesta.trofeoSeleccionGanado;
+    trofeosCreados.push(
+      trofeoRepository.crear({
+        playerId: player.id,
+        nombre: sel.nombre,
+        competencia: sel.competencia,
+        anio: temporada.anioInicio,
+        nivel: sel.nivel as NivelTrofeo,
+      }),
+    );
     await eventoLogRepository.crear({
       playerId: player.id,
       tipo: 'decision',
-      descripcion: `Convocado a la selección de ${pais} tras la temporada ${temporada.anioInicio}`,
+      descripcion: `Convocado a la selección tras la temporada ${temporada.anioInicio}`,
       impactoJson: null,
     });
   }
 
-  // 3) Oferta de mejor club (solo si el jugador rindió bien).
-  const oferta = hayOfertaMejorClub(datosCierre);
-  let clubNuevo: Club | null = null;
-  if (oferta) {
-    const mejores = (await clubRepository.findByPais(pais)).filter(
-      (c) => c.prestigio > clubActual.prestigio,
-    );
-    if (mejores.length > 0) {
-      // El club con mayor prestigio entre las ofertas.
-      clubNuevo = mejores.sort((a, b) => b.prestigio - a.prestigio)[0];
-    }
-  }
-
-  // 4) Sumar stats de la temporada al historial de carrera.
+  // 2) Sumar stats de la temporada al historial de carrera.
   await historialRepository.sumarStats(
     player.id,
     clubActual.id,
@@ -139,15 +206,13 @@ export async function cerrarTemporada(
     temporada.asistencias,
   );
 
-  // 5) Cerrar temporada y abrir la siguiente.
-  const ovrFin = ajustarOvrPorEdad(player.ovr, player.edad + (temporada.modo === 'rapido' ? 2 : 1), temporada);
+  // 3) Cerrar temporada y abrir la siguiente.
+  const edadNueva = calcularEdadNueva(player, temporada, temporada.modo);
+  const ovrFin = ajustarOvrPorEdad(player.ovr, edadNueva, temporada);
   await temporadaRepository.cerrar(temporada.id, ovrFin);
 
-  // Edad nueva y posible cambio de club.
-  const edadNueva = calcularEdadNueva(player, temporada, temporada.modo);
+  // 4) Cambio de club (solo con decisión explícita del usuario).
   const clubFinal = clubNuevo ?? clubActual;
-
-  // Si cambia de club: cierra etapa anterior y abre la nueva.
   if (clubNuevo && clubNuevo.id !== clubActual.id) {
     await historialRepository.cerrarEtapa(player.id, clubActual.id, temporada.anioInicio);
     await historialRepository.abrirEtapa(
@@ -156,9 +221,11 @@ export async function cerrarTemporada(
       temporada.anioInicio + (temporada.modo === 'rapido' ? 2 : 1),
     );
     await playerRepository.setClub(player.id, clubNuevo.id);
+    // Spec R4/R5: la posición nueva se persiste SOLO vía este flujo.
+    await playerRepository.setPosicion(player.id, decision.tipo === 'cambio' ? decision.posicion : player.posicion);
   }
 
-  // Actualizar jugador: edad, OVR ajustado y temporada actual.
+  // 5) Actualizar jugador: edad, OVR ajustado y temporada actual.
   await playerRepository.updateOvr(player.id, ovrFin);
   await playerRepository.setClub(player.id, clubFinal.id);
   await playerRepository.setTemporadaActual(player.id, player.temporadaActual + 1);
@@ -167,6 +234,8 @@ export async function cerrarTemporada(
     ...player,
     edad: edadNueva,
     ovr: ovrFin,
+    posicion:
+      decision.tipo === 'cambio' && clubNuevo ? decision.posicion : player.posicion,
     clubId: clubFinal.id,
     temporadaActual: player.temporadaActual + 1,
   };
@@ -180,24 +249,13 @@ export async function cerrarTemporada(
 
   await generarFixtureTemporada(nuevaTemporada, clubFinal);
 
-  // Evaluar retiro con la edad nueva y la oferta del cierre (§4.6).
+  // 6) Retiro: se re-evalúa con la oferta REAL (aceptada o no).
   const retiro = checkRetirementConditions({
     edad: edadNueva,
     ovr: ovrFin,
     temporadasCompletadas: player.temporadaActual,
-    tieneOferta: oferta && clubNuevo != null,
+    tieneOferta: clubNuevo != null,
   });
-
-  // 1 decisión narrativa por temporada (si el motor la decide).
-  const decision =
-    Math.random() < 0.8
-      ? elegirEvento({
-          ovr: ovrFin,
-          posicion: player.posicion,
-          edad: edadNueva,
-          temporada: temporada.anioInicio,
-        })
-      : null;
 
   return {
     temporadaCerrada: temporada,
@@ -205,12 +263,30 @@ export async function cerrarTemporada(
     player: playerActualizado,
     clubActual,
     clubNuevo,
-    trofeos: await Promise.all(trofeosGanados),
-    convocadoSeleccion: convocado,
-    ofertaRecibida: oferta && clubNuevo != null,
-    decision,
+    trofeos: await Promise.all(trofeosCreados),
+    convocadoSeleccion: propuesta.convocadoSeleccion,
+    ofertaRecibida: clubNuevo != null,
+    decision: propuesta.decision,
     retiro,
   };
+}
+
+/**
+ * Wrapper compatible (flujo Copero / automatizado): propone y finaliza
+ * de inmediato — cambio automático al mejor candidato si existe, quedarse
+ * en caso contrario (mismo comportamiento que el cierre original).
+ */
+export async function cerrarTemporada(
+  player: Player,
+  temporada: Temporada,
+  clubActual: Club,
+  pais: Country,
+): Promise<ResultadoCierreTemporada> {
+  const propuesta = await proponerCierre(player, temporada, clubActual, pais);
+  const decision: DecisionCierre = propuesta.candidatos[0]
+    ? { tipo: 'cambio', clubId: propuesta.candidatos[0].id, posicion: player.posicion }
+    : { tipo: 'quedarse' };
+  return finalizarCierre(propuesta, decision);
 }
 
 export interface ResumenTemporadaSimulada {
