@@ -42,10 +42,10 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3 — Slice 1b-ii: Match + Banner + Dashboard (PR 3)
 
-- [ ] 3.1 `src/state/usePartidoEnCursoStore.ts` + `usePartidoVistaStore.ts` (transient bannerOculto) new.
-- [ ] 3.2 Dashboard `jugar()` → `iniciarPartido` + store + `router.push('/match')`; `match-alert-banner.tsx` (persistent, no auto-dismiss) in `src/app/(main)/index.tsx`.
-- [ ] 3.3 `src/app/match.tsx`: replayer, `setInterval(100ms)` → shared `relojMs`, phases jugando/descanso/penal/final; events at scheduled minutes; penalty mini-game (direction, 8s timeout → missed); scorecard; Continuar → `finalizarPartido` → `router.replace('/(main)')`; cleanup on blur/unmount.
-- [ ] 3.4 Dashboard `useFocusEffect(cargar)` on return; banner only when pending fixture playable.
+- [x] 3.1 `src/state/usePartidoEnCursoStore.ts` + `usePartidoVistaStore.ts` (transient bannerOculto) new.
+- [x] 3.2 Dashboard `jugar()` → `iniciarPartido` + store + `router.push('/match')`; `match-alert-banner.tsx` (persistent, no auto-dismiss) in `src/app/(main)/index.tsx`.
+- [x] 3.3 `src/app/match.tsx`: replayer, `setInterval(100ms)` → shared `relojMs`, phases jugando/descanso/penal/final; events at scheduled minutes; penalty mini-game (direction, 8s timeout → missed); scorecard; Continuar → `finalizarPartido` → `router.replace('/(main)')`; cleanup on blur/unmount.
+- [x] 3.4 Dashboard `useFocusEffect(cargar)` on return; banner only when pending fixture playable.
 
 ## Phase 4 — Slice 2: Club Transfer + Position (PR 4)
 
@@ -62,3 +62,4 @@ Chain strategy: feature-branch-chain
 - [ ] 5.2 `src/domain/rules/energia.ts`: import pacing constants, delete literals.
 - [ ] 5.3 `src/domain/rules/fixture.ts`: deterministic 2-day `avanzar()`; double round-robin; truncation `total=2(N-1)≤24`; no migration.
 - [ ] 5.4 Verify: `npx tsc --noEmit` + `npx expo lint`; manual Expo Go check.
+
