@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +14,6 @@ import { colors, radius, spacing } from '@/presentation/theme';
 type ButtonProps = PressableProps & {
   label: string;
   style?: StyleProp<ViewStyle>;
-  /** Para botones con contenido extra (ícono) además del label. */
   children?: ReactNode;
 };
 
@@ -25,9 +25,8 @@ const sharedStyles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    alignSelf: 'stretch', // ← ambos botones siempre mismo ancho
   },
   label: {
     fontSize: 15,
@@ -37,17 +36,27 @@ const sharedStyles = StyleSheet.create({
   },
   disabled: { opacity: 0.35 },
   pressed: { opacity: 0.8 },
+  // Mobile: stretch to fill width
+  mobile: {
+    alignSelf: 'stretch',
+  },
+  // Web: fixed width, centered
+  web: {
+    minWidth: 220,
+    maxWidth: 300,
+    alignSelf: 'center',
+  },
 });
 
-/**
- * Botón primario: fondo blanco, texto oscuro — el "CONTINUAR" del wireframe.
- */
 export function PrimaryButton({ label, disabled, style, children, ...rest }: ButtonProps) {
+  const platformStyle = Platform.OS === 'web' ? sharedStyles.web : sharedStyles.mobile;
+
   return (
     <Pressable
       disabled={disabled}
       style={({ pressed }) => [
         sharedStyles.base,
+        platformStyle,
         { backgroundColor: colors.accent, borderColor: colors.accent },
         !disabled && pressed && sharedStyles.pressed,
         disabled && sharedStyles.disabled,
@@ -60,15 +69,15 @@ export function PrimaryButton({ label, disabled, style, children, ...rest }: But
   );
 }
 
-/**
- * Botón secundario: contorno gris, texto blanco (el "VOLVER" del wireframe).
- */
 export function SecondaryButton({ label, disabled, style, children, ...rest }: ButtonProps) {
+  const platformStyle = Platform.OS === 'web' ? sharedStyles.web : sharedStyles.mobile;
+
   return (
     <Pressable
       disabled={disabled}
       style={({ pressed }) => [
         sharedStyles.base,
+        platformStyle,
         { backgroundColor: 'transparent', borderColor: colors.borderStrong },
         !disabled && pressed && sharedStyles.pressed,
         disabled && sharedStyles.disabled,

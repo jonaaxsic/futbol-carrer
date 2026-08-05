@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePlayerStore } from '@/state/usePlayerStore';
@@ -16,19 +16,18 @@ import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
  * PANTALLA UNIFICADA: Splash + Login + Menú
- * Un solo entry point que muestra:
- * - Branding del juego
- * - Si hay carrera: saludo + "Continuar"
- * - Si no hay carrera: "Nueva carrera"
- * - Links a Ajustes y Créditos
+ * Responsive: web usa layout horizontal, mobile vertical.
  */
 export default function IndexScreen() {
   const { estado, error } = useHydrateApp();
   const player = usePlayerStore((s) => s.player);
   const limpiar = usePlayerStore((s) => s.limpiar);
   const tieneCarrera = player != null;
+  const { width: screenWidth } = useWindowDimensions();
 
-  // Si ya hidrató y hay carrera, ir directo al dashboard
+  const isWeb = Platform.OS === 'web';
+  const isWide = screenWidth > 600;
+
   useEffect(() => {
     if (estado === 'lista' && player) {
       router.replace('/(main)');
@@ -62,82 +61,80 @@ export default function IndexScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hero / Branding */}
-      <View style={styles.hero}>
-        <View style={styles.logoBadge}>
-          <Ionicons name="football" size={64} color={colors.textPrimary} />
-        </View>
-        <AppText variant="title" uppercase color="textPrimary" style={styles.title}>
-          Modo Carrera
-        </AppText>
-        <AppText variant="heading" uppercase color="textSecondary" style={styles.subtitle}>
-          Ser una leyenda
-        </AppText>
-        {estado === 'error' && (
-          <AppText variant="caption" color="danger" style={styles.error}>
-            No se pudo cargar tu carrera ({error})
-          </AppText>
-        )}
-      </View>
-
-      {/* Acciones principales */}
-      <View style={styles.actions}>
-        {tieneCarrera && (
-          <View style={styles.playerInfo}>
-            <View style={styles.avatar}>
-              <AppText variant="heading" color="onAccent">
-                {player.nombre.charAt(0).toUpperCase()}
-              </AppText>
-            </View>
-            <View style={styles.playerDetails}>
-              <AppText variant="body">{player.nombre}</AppText>
-              <AppText variant="caption" color="textSecondary">
-                {player.edad} años · OVR {player.ovr} · {player.posicion}
-              </AppText>
-            </View>
+      <View style={[styles.main, isWide && styles.mainWide]}>
+        {/* Hero / Branding */}
+        <View style={[styles.hero, isWide && styles.heroWide]}>
+          <View style={styles.logoBadge}>
+            <Ionicons name="football" size={64} color={colors.textPrimary} />
           </View>
-        )}
-
-        {tieneCarrera ? (
-          <PrimaryButton
-            label="Continuar"
-            disabled={estaCargando}
-            onPress={() => router.replace('/(main)')}
-          />
-        ) : (
-          <PrimaryButton
-            label="Nueva carrera"
-            disabled={estaCargando || estado === 'error'}
-            onPress={() => router.push('/country')}
-          />
-        )}
-
-        {!tieneCarrera && estado !== 'error' && (
-          <AppText variant="caption" style={styles.hint}>
-            Creá tu jugador y empezá a competir
+          <AppText variant="title" uppercase color="textPrimary" style={styles.title}>
+            Modo Carrera
           </AppText>
-        )}
+          <AppText variant="heading" uppercase color="textSecondary" style={styles.subtitle}>
+            Ser una leyenda
+          </AppText>
+          {estado === 'error' && (
+            <AppText variant="caption" color="danger" style={styles.error}>
+              No se pudo cargar tu carrera ({error})
+            </AppText>
+          )}
+        </View>
+
+        {/* Acciones principales */}
+        <View style={[styles.actions, isWide && styles.actionsWide]}>
+          {tieneCarrera && (
+            <View style={styles.playerInfo}>
+              <View style={styles.avatar}>
+                <AppText variant="heading" color="onAccent">
+                  {player.nombre.charAt(0).toUpperCase()}
+                </AppText>
+              </View>
+              <View style={styles.playerDetails}>
+                <AppText variant="body">{player.nombre}</AppText>
+                <AppText variant="caption" color="textSecondary">
+                  {player.edad} años · OVR {player.ovr} · {player.posicion}
+                </AppText>
+              </View>
+            </View>
+          )}
+
+          {/* Botones principales */}
+          <View style={[styles.buttonRow, isWide && styles.buttonRowWide]}>
+            {tieneCarrera ? (
+              <PrimaryButton
+                label="Continuar"
+                disabled={estaCargando}
+                onPress={() => router.replace('/(main)')}
+              />
+            ) : (
+              <PrimaryButton
+                label="Nueva carrera"
+                disabled={estaCargando || estado === 'error'}
+                onPress={() => router.push('/country')}
+              />
+            )}
+          </View>
+
+          {/* Links secundarios */}
+          <View style={[styles.footerLinks, isWide && styles.footerLinksWide]}>
+            {tieneCarrera && (
+              <SecondaryButton label="Nueva carrera" onPress={nuevaCarrera} />
+            )}
+            <SecondaryButton
+              label="Ajustes"
+              onPress={() => router.push('/settings')}
+            />
+            <SecondaryButton
+              label="Créditos"
+              onPress={() => router.push('/credits')}
+            />
+          </View>
+        </View>
       </View>
 
-      {/* Links secundarios */}
-      <View style={styles.footer}>
-        <SecondaryButton
-          label="Nueva carrera"
-          onPress={nuevaCarrera}
-          style={tieneCarrera ? undefined : styles.hidden}
-        />
-        <SecondaryButton
-          label="Ajustes"
-          onPress={() => router.push('/settings')}
-        />
-        <SecondaryButton
-          label="Créditos"
-          onPress={() => router.push('/credits')}
-        />
-        <AppText variant="caption" style={styles.version}>
-          v1.0.0
-        </AppText>
-      </View>
+      <AppText variant="caption" style={styles.version}>
+        v1.0.0
+      </AppText>
     </SafeAreaView>
   );
 }
@@ -147,12 +144,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  hero: {
+  main: {
     flex: 1,
-    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
     justifyContent: 'center',
+  },
+  mainWide: {
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  hero: {
+    alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  heroWide: {
+    marginBottom: spacing.xxl,
   },
   logoBadge: {
     width: 128,
@@ -177,8 +185,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   actions: {
-    paddingHorizontal: spacing.xl,
     gap: spacing.md,
+  },
+  actionsWide: {
+    gap: spacing.lg,
   },
   playerInfo: {
     flexDirection: 'row',
@@ -197,20 +207,23 @@ const styles = StyleSheet.create({
   playerDetails: {
     flex: 1,
   },
-  hint: {
-    textAlign: 'center',
-    marginTop: -spacing.xs,
-  },
-  footer: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.lg,
+  buttonRow: {
     gap: spacing.sm,
   },
-  hidden: {
-    display: 'none',
+  buttonRowWide: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  footerLinks: {
+    gap: spacing.sm,
+  },
+  footerLinksWide: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
   },
   version: {
     textAlign: 'center',
-    marginTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
 });

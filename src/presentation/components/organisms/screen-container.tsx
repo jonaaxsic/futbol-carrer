@@ -8,31 +8,17 @@ import { AppText } from '@/presentation/components/atoms/app-text';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /** Ancho máximo del contenido en web */
-const CONTENT_MAX_WIDTH = 480;
+const CONTENT_MAX_WIDTH = 600;
 
 type ScreenContainerProps = {
   children: ReactNode;
-  /** Si está presente, muestra header con flecha volver + título. */
   title?: string;
-  /** Footer fijo al pie (VOLVER/CONTINUAR del wireframe). */
   footer?: ReactNode;
-  /**
-   * Habilita scroll vertical del contenido (pantallas largas: dashboard,
-   * fixture). Activo SOLO si el contenido requiere scroll; el footer y el
-   * header quedan fijos.
-   */
   scrollable?: boolean;
-  /** Estilo del contenedor de contenido (o del contentContainer del ScrollView). */
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
 };
 
-/**
- * Contenedor base de pantalla: fondo oscuro, safe area,
- * header opcional con volver (flecha) y footer opcional fijo.
- * Con `scrollable` el contenido va dentro de un ScrollView.
- * Responsive: en web limita ancho máximo para evitar estiramiento.
- */
 export function ScreenContainer({
   children,
   title,
@@ -42,16 +28,25 @@ export function ScreenContainer({
   contentContainerStyle,
 }: ScreenContainerProps) {
   const { width: screenWidth } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isWide = screenWidth > 600;
 
-  // Calcular ancho responsive para web
-  const maxWidthStyle: ViewStyle | undefined = Platform.OS === 'web'
-    ? { maxWidth: Math.min(screenWidth - spacing.md * 2, CONTENT_MAX_WIDTH), alignSelf: 'center' as const, width: '100%' as const }
+  const containerStyle: ViewStyle | undefined = isWeb
+    ? {
+        maxWidth: Math.min(screenWidth * 0.9, CONTENT_MAX_WIDTH),
+        alignSelf: 'center',
+        width: '100%',
+      }
     : undefined;
+
+  const footerStyle: ViewStyle = isWide
+    ? { flexDirection: 'row', justifyContent: 'center', gap: spacing.md }
+    : {};
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {title != null && (
-        <View style={[styles.header, maxWidthStyle]}>
+        <View style={[styles.header, containerStyle]}>
           {title !== '' && (
             <Pressable
               onPress={() => router.back()}
@@ -70,18 +65,18 @@ export function ScreenContainer({
       {scrollable ? (
         <ScrollView
           style={styles.scrollFlex}
-          contentContainerStyle={[styles.content, maxWidthStyle, style, contentContainerStyle]}
+          contentContainerStyle={[styles.content, containerStyle, style, contentContainerStyle]}
           showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, maxWidthStyle, style]}>
+        <View style={[styles.content, containerStyle, style]}>
           {children}
         </View>
       )}
 
       {footer != null && (
-        <View style={[styles.footer, maxWidthStyle]}>
+        <View style={[styles.footer, containerStyle, footerStyle]}>
           {footer}
         </View>
       )}
