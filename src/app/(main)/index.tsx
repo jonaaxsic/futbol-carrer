@@ -249,34 +249,32 @@ export default function DashboardScreen() {
     <ScreenContainer scrollable contentContainerStyle={styles.content}>
         {cargando && <ActivityIndicator color={colors.textPrimary} style={styles.carga} />}
 
-        {/* Identidad */}
-        <View style={styles.identityRow}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={28} color={colors.onAccent} />
+        {/* Tarjeta unificada del jugador (§6) */}
+        <View style={[styles.playerCard, { borderColor: acento.accent + '40' }]}>
+          <View style={styles.playerCardTop}>
+            <View style={[styles.avatar, { backgroundColor: acento.accent }]}>
+              <Ionicons name="person" size={28} color={acento.onAccent} />
+            </View>
+            <View style={styles.playerCardInfo}>
+              <AppText variant="heading">{player.nombre}</AppText>
+              <AppText variant="caption" color="textSecondary">
+                {player.posicion} · {player.edad} años · {player.pais}
+              </AppText>
+            </View>
+            <View style={[styles.ovrBadge, { backgroundColor: acento.accent }]}>
+              <AppText variant="caption" style={{ color: acento.onAccent }}>OVR</AppText>
+              <AppText variant="title" style={{ color: acento.onAccent }}>{player.ovr}</AppText>
+            </View>
           </View>
-          <View style={styles.identityInfo}>
-            <AppText variant="heading">{player.nombre}</AppText>
-            <AppText variant="caption">
-              {player.edad} años · {player.pais} · {player.posicion}
+          <View style={styles.playerCardDivider} />
+          <View style={styles.playerCardBottom}>
+            <ClubCrest club={club} size={18} />
+            <AppText variant="body">{club?.nombre ?? '—'}</AppText>
+            <AppText variant="caption" color="textMuted" style={styles.playerCardMeta}>
+              {temporadaActiva.anioInicio} · {club?.liga ?? ''} ·{' '}
+              {temporadaActiva.modo === 'rapido' ? 'Rápido' : 'Normal'}
             </AppText>
           </View>
-          <View style={[styles.ovrBadge, { backgroundColor: acento.accent }]}>
-            <AppText variant="caption" style={{ color: acento.onAccent }}>OVR</AppText>
-            <AppText variant="heading" style={{ color: acento.onAccent }}>{player.ovr}</AppText>
-          </View>
-        </View>
-
-        {/* Club */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <ClubCrest club={club} size={20} />
-            <AppText variant="label" uppercase color="textSecondary">Club</AppText>
-          </View>
-          <AppText variant="body">{club?.nombre ?? '—'}</AppText>
-          <AppText variant="caption" color="textMuted">
-            Temporada {temporadaActiva.anioInicio} · {club?.liga ?? ''} ·{' '}
-            {temporadaActiva.modo === 'rapido' ? 'rápido' : 'normal'}
-          </AppText>
         </View>
 
         {/* Energía (§4.2) */}
@@ -511,21 +509,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  playerCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  playerCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   avatar: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.pill,
-    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  identityInfo: { flex: 1 },
+  playerCardInfo: { flex: 1, gap: 2 },
   ovrBadge: {
-    backgroundColor: colors.accent,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     alignItems: 'center',
+    minWidth: 48,
+  },
+  playerCardDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  playerCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  playerCardMeta: {
+    marginLeft: 'auto',
   },
   card: {
     backgroundColor: colors.surface,
