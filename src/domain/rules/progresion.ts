@@ -1,7 +1,6 @@
 import type { TipoEntrenamiento } from '@/domain/entities/entrenamiento';
 import type { PlayerStats, StatName } from '@/domain/entities/stats';
 import { clampStat } from '@/domain/entities/stats';
-import { OVR_MAX, OVR_MIN } from '@/shared/constants/game';
 
 /**
  * Reglas de progresión de stats (§14 + §15 declive).
@@ -15,19 +14,16 @@ export interface ResultadoEntrenamiento {
   lesion: boolean;
 }
 
-/** Probabilidades y rangos por tipo (§4.2). */
-export const TIPOS_ENTRENAMIENTO: Record<
-  TipoEntrenamiento,
-  {
-    etiqueta: string;
-    descripcion: string;
-    duracionHoras: number;
-    probSubida: number;
-    deltaMin: number;
-    deltaMax: number;
-    probLesion: number;
-  }
-> = {
+/** Probabilidades y rangos por tipo (§4.2 + §13b). */
+export const TIPOS_ENTRENAMIENTO: Partial<Record<TipoEntrenamiento, {
+  etiqueta: string;
+  descripcion: string;
+  duracionHoras: number;
+  probSubida: number;
+  deltaMin: number;
+  deltaMax: number;
+  probLesion: number;
+}>> = {
   basico: {
     etiqueta: 'Entrenamiento básico',
     descripcion: '1-2 h · ganancia pequeña, riesgo bajo',
@@ -106,6 +102,10 @@ export function calcularResultadoEntrenamiento(
   random: () => number = Math.random,
 ): ResultadoEntrenamiento {
   const cfg = TIPOS_ENTRENAMIENTO[tipo];
+  if (!cfg) {
+    // Fallback para tipos no encontrados
+    return { statsDelta: {}, ovrDelta: 0, lesion: false };
+  }
   const roll = random();
   const ajuste = edadAjuste(edad);
 

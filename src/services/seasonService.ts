@@ -12,8 +12,7 @@ import {
   type DatosCierre,
   type TrofeoGanado,
 } from '@/domain/rules/temporada';
-import { aplicarDecliveEdad, calcularDeclivePorEdad } from '@/domain/rules/progresion';
-import type { PlayerStats } from '@/domain/entities/stats';
+import { aplicarDecliveEdad } from '@/domain/rules/progresion';
 import { checkRetirementConditions, type DecisionRetiro } from '@/domain/rules/retiro';
 import type { Country } from '@/shared/constants/game';
 import type { SeasonMode } from '@/shared/types';

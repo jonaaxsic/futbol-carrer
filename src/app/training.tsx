@@ -7,6 +7,12 @@ import type { Entrenamiento, TipoEntrenamiento } from '@/domain/entities/entrena
 import { TIPOS_ENTRENAMIENTO } from '@/domain/rules/progresion';
 import { STAT_LABELS, type StatName } from '@/domain/entities/stats';
 import {
+  entrenamientosParaPosicion,
+  NIVEL_ETIQUETA,
+  NIVEL_COLOR,
+  type EntrenamientoPosicion,
+} from '@/domain/rules/entrenamientos-por-posicion';
+import {
   formatearCountdown,
   useCountdownTraining,
 } from '@/presentation/hooks/use-countdown-training';
@@ -24,17 +30,11 @@ import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
-const RIESGO_COLOR: Record<TipoEntrenamiento, string> = {
-  basico: colors.success,
-  normal: colors.warning,
-  extremo: colors.danger,
-};
-
 /**
- * 13. ENTRENAMIENTO (wireframe #13) — Sprint 4 completo.
+ * 13. ENTRENAMIENTO (wireframe #13) — Sprint 4 completo + §13b por posición.
  * Estados:
  * 1) Sesión pendiente sin vencer → countdown real (persiste aunque cierres la app).
- * 2) Sesión vencida → se resuelve sola al abrir (aplica delta OVR).
+ * 2) Sesión vencida → se resuelve sola al abrir (aplica delta stats).
  * 3) Sin sesión → elegir tipo e iniciar (bloquea el botón si hay pendiente).
  */
 export default function TrainingScreen() {
@@ -43,10 +43,13 @@ export default function TrainingScreen() {
 
   const [pendiente, setPendiente] = useState<Entrenamiento | null>(null);
   const [cargando, setCargando] = useState(true);
-  const [elegido, setElegido] = useState<TipoEntrenamiento | null>(null);
+  const [elegido, setElegido] = useState<EntrenamientoPosicion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{ statsDelta: Partial<Record<StatName, number>>; ovrDelta: number; lesion: boolean } | null>(null);
   const [iniciando, setIniciando] = useState(false);
+
+  // Entrenamientos disponibles para la posición del jugador
+  const entrenamientosDisponibles = player ? entrenamientosParaPosicion(player.posicion) : [];
 
   // Carga inicial SOLO cuando cambia el jugador. El primer setState ocurre
   // en el callback de una promesa (patrón que evita renders en cascada).
@@ -101,7 +104,7 @@ export default function TrainingScreen() {
     setIniciando(true);
     setError(null);
     try {
-      await iniciarEntrenamiento(player.id, elegido);
+      await iniciarEntrenamiento(player.id, elegido.id as TipoEntrenamiento);
       const p = await obtenerEntrenamientoPendiente(player.id);
       setPendiente(p);
       setElegido(null);
@@ -173,7 +176,7 @@ export default function TrainingScreen() {
               {formatearCountdown(restanteMs)}
             </AppText>
             <AppText variant="caption" color="textMuted">
-              {TIPOS_ENTRENAMIENTO[pendiente.tipo].etiqueta} · no podés iniciar otro hasta terminar
+              {TIPOS_ENTRENAMIENTO[pendiente.tipo]?.etiqueta ?? pendiente.tipo} · no podés iniciar otro hasta terminar
             </AppText>
             <SecondaryButton
               label="Volver al dashboard"
@@ -184,8 +187,8 @@ export default function TrainingScreen() {
         ) : (
           <>
             <AppText variant="body" color="textSecondary" style={styles.intro}>
-              Elige el tipo de entrenamiento. El tiempo avanza de verdad: aunque cierres la app,
-              el conteo continúa.
+              Elegí el entrenamiento para tu posición. El tiempo avanza de verdad:
+              aunque cierres la app, el conteo continúa.
             </AppText>
 
             <View style={styles.energiaCard}>
@@ -204,13 +207,12 @@ export default function TrainingScreen() {
             </View>
 
             <View style={styles.opciones}>
-              {(Object.keys(TIPOS_ENTRENAMIENTO) as TipoEntrenamiento[]).map((id) => {
-                const cfg = TIPOS_ENTRENAMIENTO[id];
-                const isSelected = elegido === id;
+              {entrenamientosDisponibles.map((ent) => {
+                const isSelected = elegido?.id === ent.id;
                 return (
                   <Pressable
-                    key={id}
-                    onPress={() => setElegido(id)}
+                    key={ent.id}
+                    onPress={() => setElegido(ent)}
                     disabled={!puedeEntrenar}
                     style={({ pressed }) => [
                       styles.opcionCard,
@@ -220,13 +222,21 @@ export default function TrainingScreen() {
                     ]}>
                     <View style={styles.opcionHeader}>
                       <AppText variant="heading" color={isSelected ? 'textPrimary' : 'textSecondary'}>
-                        {cfg.etiqueta}
+                        {ent.nombre}
                       </AppText>
-                      <AppText variant="label" uppercase style={{ color: RIESGO_COLOR[id] }}>
-                        {cfg.duracionHoras} h
-                      </AppText>
+                      <View style={[styles.nivelBadge, { backgroundColor: NIVEL_COLOR[ent.nivel] }]}>
+                        <AppText variant="caption" style={{ color: '#fff' }}>
+                          {NIVEL_ETIQUETA[ent.nivel]}
+                        </AppText>
+                      </View>
                     </View>
-                    <AppText variant="caption">{cfg.descripcion}</AppText>
+                    <AppText variant="caption">{ent.descripcion}</AppText>
+                    <AppText variant="caption" color="textMuted">
+                      {ent.duracionHoras} h · {ent.distanciaKm} km
+                    </AppText>
+                    <AppText variant="caption" color="textMuted">
+                      Stats: {ent.statsObjetivo.map(s => STAT_LABELS[s]).join(', ')}
+                    </AppText>
                   </Pressable>
                 );
               })}
@@ -239,7 +249,7 @@ export default function TrainingScreen() {
             Decisión actual
           </AppText>
           <AppText variant="body" color={elegido ? 'textPrimary' : 'textMuted'}>
-            {elegido ? TIPOS_ENTRENAMIENTO[elegido].etiqueta : 'Sin cambios'}
+            {elegido ? `${elegido.nombre} (${NIVEL_ETIQUETA[elegido.nivel]})` : 'Sin cambios'}
           </AppText>
         </View>
       </View>
@@ -288,6 +298,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  nivelBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
   },
   pressed: { opacity: 0.7 },
   decisionBox: {

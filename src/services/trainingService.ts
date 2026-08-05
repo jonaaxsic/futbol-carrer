@@ -2,6 +2,7 @@ import type { Entrenamiento, TipoEntrenamiento } from '@/domain/entities/entrena
 import type { Player } from '@/domain/entities/player';
 import { STATS_POR_POSICION, type PlayerStats } from '@/domain/entities/stats';
 import { calcularResultadoEntrenamiento, TIPOS_ENTRENAMIENTO } from '@/domain/rules/progresion';
+import { entrenamientosParaPosicion } from '@/domain/rules/entrenamientos-por-posicion';
 import type { PlayerRepository } from '@/domain/interfaces/repositories';
 
 import { entrenamientoRepository } from '@/data/repositories/entrenamiento-repository';
@@ -13,13 +14,40 @@ import {
 } from '@/services/energiaService';
 
 /**
- * Casos de uso de entrenamiento (§4.2 + §14 stats).
+ * Casos de uso de entrenamiento (§4.2 + §14 stats + §13b por posición).
  * El "tiempo real" se guarda con timestamps: si la app se cierra,
  * al volver se detecta que la sesión ya venció y se resuelve sola.
  * Cada sesión es VOLUNTARIA y cuesta ENERGIA_ENTRENAMIENTO barras.
  */
 
 const MS_HORA = 3_600_000;
+
+/** Busca la configuración de un entrenamiento por su ID. */
+function buscarConfiguracion(tipo: TipoEntrenamiento, posicion: string) {
+  // Primero buscar en los entrenamientos por posición
+  const entrenamientosPosicion = entrenamientosParaPosicion(posicion as any);
+  const encontrado = entrenamientosPosicion.find(e => e.id === tipo);
+  if (encontrado) {
+    return {
+      duracionHoras: encontrado.duracionHoras,
+      probSubida: encontrado.probSubida,
+      deltaMin: encontrado.deltaMin,
+      deltaMax: encontrado.deltaMax,
+      probLesion: encontrado.probLesion,
+      statsObjetivo: encontrado.statsObjetivo,
+    };
+  }
+  // Fallback a los tipos antiguos
+  const basico = TIPOS_ENTRENAMIENTO[tipo as keyof typeof TIPOS_ENTRENAMIENTO];
+  return basico ? {
+    duracionHoras: basico.duracionHoras,
+    probSubida: basico.probSubida,
+    deltaMin: basico.deltaMin,
+    deltaMax: basico.deltaMax,
+    probLesion: basico.probLesion,
+    statsObjetivo: STATS_POR_POSICION[posicion as keyof typeof STATS_POR_POSICION] ?? [],
+  } : null;
+}
 
 /** Inicia un entrenamiento (cuesta energía; se bloquea sin energía suficiente). */
 export async function iniciarEntrenamiento(
@@ -39,7 +67,9 @@ export async function iniciarEntrenamiento(
   }
   await consumirEnergia(player, ENERGIA_ENTRENAMIENTO);
 
-  const cfg = TIPOS_ENTRENAMIENTO[tipo];
+  const cfg = buscarConfiguracion(tipo, player.posicion);
+  if (!cfg) throw new Error('Tipo de entrenamiento no válido');
+
   const inicioTs = Date.now();
   return entrenamientoRepository.create({
     playerId,
@@ -69,7 +99,10 @@ export async function resolverEntrenamiento(
   const player = await playerRepository.findById(playerId);
   if (!player) return null;
 
-  const statsRelevantes = STATS_POR_POSICION[player.posicion];
+  // Buscar configuración del entrenamiento para obtener stats objetivo
+  const cfg = buscarConfiguracion(pendiente.tipo, player.posicion);
+  const statsRelevantes = cfg?.statsObjetivo ?? STATS_POR_POSICION[player.posicion];
+
   const resultado = calcularResultadoEntrenamiento(
     pendiente.tipo,
     player.stats,
