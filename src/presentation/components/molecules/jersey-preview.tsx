@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import Svg, { ClipPath, Defs, G, Path, Rect, Line } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
 import type { Country } from '@/shared/constants/game';
 import {
@@ -10,9 +10,9 @@ import {
 import { AppText } from '@/presentation/components/atoms/app-text';
 
 /**
- * Molecule: camiseta de fútbol SVG realista.
- * Forma anatómica: hombros anchos, cintura estrecha, mangas con ribete.
- * Colores del país: torso primario, detalles secundario.
+ * Molecule: camiseta de fútbol SVG simple.
+ * Forma básica: torso + mangas + cuello.
+ * Colores del país, nombre y número.
  */
 export interface JerseyPreviewProps {
   nombre?: string;
@@ -22,40 +22,20 @@ export interface JerseyPreviewProps {
   colores?: ColoresNacionales;
 }
 
-/** Torso + mangas (forma anatómica con cintura) */
-const TORSO_PATH =
-  'M70 26 C58 26 50 32 47 42 L32 52 L24 72 L24 80 L28 82 L32 110 L32 142 C32 152 42 158 58 158 L82 158 C98 158 108 152 108 142 L108 110 L112 82 L116 80 L116 72 L108 52 L93 42 C90 32 82 26 70 26 Z';
+/** Torso + mangas (forma simple) */
+const TORSO =
+  'M70 28 C56 28 48 36 45 46 L30 55 L25 75 L25 142 C25 152 38 158 55 158 L85 158 C102 158 115 152 115 142 L115 75 L110 55 L95 46 C92 36 84 28 70 28 Z';
 
-/** Manga izquierda completa */
-const SLEEVE_LEFT =
-  'M47 42 L32 52 L24 72 L24 80 L28 82 L32 78 L42 68 C45 66 47 62 47 58 Z';
+/** Cuello en V simple */
+const COLLAR = 'M54 25 L70 38 L86 25 L83 22 L70 32 L57 22 Z';
 
-/** Manga derecha completa */
-const SLEEVE_RIGHT =
-  'M93 42 L108 52 L116 72 L116 80 L112 82 L108 78 L98 68 C95 66 93 62 93 58 Z';
-
-/** Cuello en V con banda */
-const COLLAR_V =
-  'M52 24 L62 18 L70 30 L78 18 L88 24 L85 28 L70 38 L55 28 Z';
-
-/** Banda del cuello (Detalle) */
-const COLLAR_BAND =
-  'M54 22 L70 34 L86 22';
-
-/** Líneas de costura del torso (detalles sutiles) */
-const SEAM_LINES = [
-  'M70 38 L70 155', // costura central
-  'M42 55 L42 145', // costura lateral izquierda
-  'M98 55 L98 145', // costura lateral derecha
-];
-
-/** Franjas verticales del patrón 'franjas' */
+/** Franjas verticales */
 const FRANJAS: readonly { x: number; w: number }[] = [
-  { x: 36, w: 7 },
-  { x: 50, w: 7 },
-  { x: 64, w: 7 },
-  { x: 78, w: 7 },
-  { x: 92, w: 7 },
+  { x: 30, w: 8 },
+  { x: 46, w: 8 },
+  { x: 62, w: 8 },
+  { x: 78, w: 8 },
+  { x: 94, w: 8 },
 ];
 
 export function JerseyPreview({
@@ -74,64 +54,35 @@ export function JerseyPreview({
       <Svg width={tamaño} height={alto} viewBox="0 0 140 160">
         <Defs>
           <ClipPath id="torso-clip">
-            <Path d={TORSO_PATH} />
+            <Path d={TORSO} />
           </ClipPath>
-          {/* Sombra sutil para efecto 3D */}
-          <linearGradient id="sombra" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#000" stopOpacity="0.08" />
-            <stop offset="0.5" stopColor="#000" stopOpacity="0" />
-            <stop offset="1" stopColor="#000" stopOpacity="0.08" />
-          </linearGradient>
         </Defs>
 
-        {/* === CAPA 1: MANGAS (secundario) === */}
-        <Path d={SLEEVE_LEFT} fill={colores.secundario} />
-        <Path d={SLEEVE_RIGHT} fill={colores.secundario} />
+        {/* Mangas (secundario) */}
+        <Rect x="8" y="40" width="35" height="34" rx="12" fill={colores.secundario} transform="rotate(-16 25 57)" />
+        <Rect x="97" y="40" width="35" height="34" rx="12" fill={colores.secundario} transform="rotate(16 115 57)" />
 
-        {/* Ribetes de manga (línea fina) */}
-        <Line x1="24" y1="78" x2="32" y2="74" stroke={colores.primario} strokeWidth="1.5" />
-        <Line x1="116" y1="78" x2="108" y2="74" stroke={colores.primario} strokeWidth="1.5" />
+        {/* Torso (primario) */}
+        <Path d={TORSO} fill={colores.primario} />
 
-        {/* === CAPA 2: TORSO (primario) === */}
-        <Path d={TORSO_PATH} fill={colores.primario} />
-
-        {/* === CAPA 3: PATRÓN DENTRO DEL TORSO === */}
+        {/* Patrón */}
         <G clipPath="url(#torso-clip)">
-          {/* Franjas verticales */}
           {colores.patron === 'franjas' &&
             FRANJAS.map((f) => (
               <Rect key={f.x} x={f.x} y="35" width={f.w} height="125" fill={colores.secundario} />
             ))}
-
-          {/* Bicolor (mitad izquierda) */}
           {colores.patron === 'bicolor' && (
-            <Rect x="36" y="35" width="34" height="125" fill={colores.secundario} />
+            <Rect x="30" y="35" width="40" height="125" fill={colores.secundario} />
           )}
-
-          {/* Dobladillo inferior */}
-          <Rect x="36" y="150" width="68" height="10" fill={colores.secundario} />
-
-          {/* Costuras sutiles */}
-          {SEAM_LINES.map((d, i) => (
-            <Path key={i} d={d} stroke={colores.secundario} strokeWidth="0.5" opacity={0.3} fill="none" />
-          ))}
-
-          {/* Sombra lateral para efecto 3D */}
-          <Rect x="36" y="35" width="68" height="125" fill="url(#sombra)" />
+          <Rect x="30" y="150" width="80" height="10" fill={colores.secundario} />
         </G>
 
-        {/* === CAPA 4: CUELLO === */}
-        <Path d={COLLAR_V} fill={colores.secundario} />
-        <Path d={COLLAR_BAND} fill="none" stroke={colores.primario} strokeWidth="2" />
-
-        {/* === CAPA 5: DETALLES FINALES === */}
-        {/* Línea de hombro */}
-        <Line x1="35" y1="42" x2="105" y2="42" stroke={colores.secundario} strokeWidth="1" opacity={0.5} />
+        {/* Cuello */}
+        <Path d={COLLAR} fill={colores.secundario} />
       </Svg>
 
-      {/* === TEXTO: NOMBRE + NÚMERO === */}
+      {/* Nombre + número */}
       <View style={styles.texto} pointerEvents="none">
-        {/* Nombre: parte superior del torso */}
         <View style={styles.nombreContainer}>
           <AppText
             variant="caption"
@@ -139,10 +90,8 @@ export function JerseyPreview({
             {(nombre ?? 'CAMISETA').toUpperCase()}
           </AppText>
         </View>
-
-        {/* Número: centro del torso */}
         <View style={styles.numeroContainer}>
-          <AppText style={[styles.numero, { color: texto, fontSize: Math.max(32, tamaño * 0.36) }]}>
+          <AppText style={[styles.numero, { color: texto, fontSize: Math.max(32, tamaño * 0.35) }]}>
             {numero ?? '10'}
           </AppText>
         </View>
@@ -169,7 +118,6 @@ const styles = StyleSheet.create({
   nombre: {
     fontWeight: '800',
     letterSpacing: 2,
-    textTransform: 'uppercase',
   },
   numeroContainer: {
     position: 'absolute',
