@@ -56,6 +56,7 @@ export default function MatchScreen() {
   const actualizarLineaTiempo = usePartidoEnCursoStore((s) => s.actualizarLineaTiempo);
   const limpiarSesion = usePartidoEnCursoStore((s) => s.limpiar);
   const setPlayer = usePlayerStore((s) => s.setPlayer);
+  const setTemporadaActiva = usePlayerStore((s) => s.setTemporadaActiva);
 
   const [fase, setFase] = useState<Fase>('jugando');
   const [minuto, setMinuto] = useState(1);
@@ -244,6 +245,7 @@ export default function MatchScreen() {
         { conEvento: false },
       );
       setPlayer(resultado.jugadorActualizado);
+      setTemporadaActiva(resultado.temporadaActualizada);
       limpiarSesion();
       router.replace('/(main)'); // spec R5: siempre al dashboard
     } catch (e) {

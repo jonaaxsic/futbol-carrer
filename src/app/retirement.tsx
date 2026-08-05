@@ -19,7 +19,7 @@ import { colors, radius, spacing } from '@/presentation/theme';
 export default function RetirementScreen() {
   const player = usePlayerStore((s) => s.player);
   const [resumen, setResumen] = useState<ResumenRetiro | null>(null);
-  const [retirando, setRetirando] = useState(true);
+  const [retirando, setRetirando] = useState(() => !player);
 
   useEffect(() => {
     let activo = true;
@@ -32,8 +32,6 @@ export default function RetirementScreen() {
         .finally(() => {
           if (activo) setRetirando(false);
         });
-    } else {
-      setRetirando(false);
     }
     return () => {
       activo = false;

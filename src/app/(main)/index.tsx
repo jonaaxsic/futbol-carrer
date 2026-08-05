@@ -12,7 +12,6 @@ import type {
 } from '@/domain/rules/partido';
 import { resultadoDesdeLineaTiempo } from '@/domain/rules/partido';
 import { clubRepository } from '@/data/repositories/club-repository';
-import { temporadaRepository } from '@/data/repositories/temporada-repository';
 import {
   obtenerProximosPartidos,
   omitirPartido,
@@ -171,19 +170,18 @@ export default function DashboardScreen() {
 
   async function cerrar() {
     if (!player || !temporadaActiva || !club || ocupado) return;
-    // Bug C: nunca cerrar sin haber jugado al menos un partido. El store
-    // queda stale tras jugar; leo la temporada fresca de BD (stats reales).
-    const temporadaFresca = await temporadaRepository.findActiva(player.id);
-    if (!temporadaFresca || temporadaFresca.pj === 0) {
+    // Live Stats R5: temporadaActiva ya está fresca en el store tras continuar();
+    // ya no hace falta el re-read manual de BD (Bug C workaround).
+    // Mantenemos la validación pj === 0 usando el store directamente.
+    if (temporadaActiva.pj === 0) {
       setError('Aún no jugaste ningún partido. Jugá antes de cerrar la temporada.');
       return;
     }
-    setTemporadaActiva(temporadaFresca);
     setOcupado(true);
     try {
       // D6: primero se propone (solo calcula, no persiste); la decisión de
       // club es del usuario. Sin oferta → se finaliza directo (flujo previo).
-      const propuesta = await proponerCierre(player, temporadaFresca, club, player.pais);
+      const propuesta = await proponerCierre(player, temporadaActiva, club, player.pais);
       if (propuesta.candidatos.length === 0) {
         const cierre = await finalizarCierre(propuesta, { tipo: 'quedarse' });
         fijarCierre(cierre);
@@ -416,7 +414,7 @@ function ResumenPartido({
             color={colors.textSecondary}
           />
           <AppText variant="caption" style={styles.situacionTexto}>
-            {sit.minuto}' · {sit.descripcion}
+            {sit.minuto}{"'"}&nbsp;· {sit.descripcion}
           </AppText>
         </View>
       ))}

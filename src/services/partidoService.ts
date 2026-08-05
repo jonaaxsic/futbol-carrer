@@ -48,6 +48,8 @@ export interface ResultadoPartidoJugado {
   jugadorActualizado: Player;
   /** Evento narrativo que dispara la pantalla 11, o null. */
   eventoPosterior: EventoNarrativo | null;
+  /** Temporada actualizada con stats frescas tras el partido (Live Stats R1/R3). */
+  temporadaActualizada: Temporada;
 }
 
 /** Contenido de una sesión de partido iniciada (lo consume /match, PR3). */
@@ -183,6 +185,9 @@ export async function finalizarPartido(
         })
       : null;
 
+  // Live Stats R1/R3: re-leer la temporada fresca desde BD tras acumular stats.
+  const temporadaActualizada = await temporadaRepository.findActiva(player.id);
+
   return {
     partidoActualizado: {
       ...partido,
@@ -195,6 +200,7 @@ export async function finalizarPartido(
     simulacion,
     jugadorActualizado: player,
     eventoPosterior,
+    temporadaActualizada: temporadaActualizada!,
   };
 }
 

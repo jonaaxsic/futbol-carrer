@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { Trofeo } from '@/domain/entities/trofeo';
@@ -14,23 +14,25 @@ import { colors, radius, spacing } from '@/presentation/theme';
 /**
  * TAB PERFIL — resumen real del jugador: identidad, stats de temporada activa
  * y acceso a trofeos (Sprint 6). El fin de carrera se dispara desde aquí (§4.6).
+ * Live Stats R4: recarga trofeos al volver del /match vía useFocusEffect.
  */
 export default function ProfileScreen() {
   const player = usePlayerStore((s) => s.player);
   const temporadaActiva = usePlayerStore((s) => s.temporadaActiva);
   const [trofeos, setTrofeos] = useState<Trofeo[]>([]);
 
-  useEffect(() => {
-    let activo = true;
-    if (player) {
-      trofeoRepository.findByPlayer(player.id).then((lista) => {
-        if (activo) setTrofeos(lista);
-      });
-    }
-    return () => {
-      activo = false;
-    };
+  const cargarTrofeos = useCallback(async () => {
+    if (!player) return;
+    const lista = await trofeoRepository.findByPlayer(player.id);
+    setTrofeos(lista);
   }, [player]);
+
+  // Carga inicial + recarga al volver del /match (Live Stats R4).
+  useFocusEffect(
+    useCallback(() => {
+      cargarTrofeos();
+    }, [cargarTrofeos]),
+  );
 
   if (!player) {
     return (

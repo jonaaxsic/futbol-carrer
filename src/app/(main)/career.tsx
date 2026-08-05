@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Club } from '@/domain/entities/club';
@@ -8,6 +8,7 @@ import type { HistorialEtapa } from '@/domain/entities/historial-carrera';
 import { clubRepository } from '@/data/repositories/club-repository';
 import { historialRepository } from '@/data/repositories/historial-repository';
 import { usePlayerStore } from '@/state/usePlayerStore';
+import { lineaCarreraConActiva, type LineaCarreraEtapa } from '@/domain/rules/career';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
@@ -16,35 +17,38 @@ import { colors, radius, spacing } from '@/presentation/theme';
 /**
  * 9. LÍNEA DE TIEMPO / MI CARRERA (wireframe #9)
  * Timeline vertical con etapas reales desde `historial_carrera` (Sprint 3).
+ * Live Stats R3/R4: combina historial cerrado + temporada activa en curso (anioFin === null)
+ * y recarga al volver del /match vía useFocusEffect.
  */
 export default function CareerScreen() {
   const player = usePlayerStore((s) => s.player);
-  const [etapas, setEtapas] = useState<HistorialEtapa[]>([]);
+  const temporadaActiva = usePlayerStore((s) => s.temporadaActiva);
+  const [etapas, setEtapas] = useState<LineaCarreraEtapa[]>([]);
   const [clubes, setClubes] = useState<Record<number, Club>>({});
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    let activo = true;
-    (async () => {
-      if (!player) return;
-      try {
-        const filas = await historialRepository.findByPlayer(player.id);
-        const ids = [...new Set(filas.map((e) => e.clubId))];
-        const entradas = await Promise.all(ids.map((id) => clubRepository.findById(id)));
-        if (activo) {
-          setEtapas(filas);
-          setClubes(
-            Object.fromEntries(entradas.filter((c) => c != null).map((c) => [c.id, c])),
-          );
-        }
-      } finally {
-        if (activo) setCargando(false);
-      }
-    })();
-    return () => {
-      activo = false;
-    };
-  }, [player]);
+  const cargar = useCallback(async () => {
+    if (!player) return;
+    try {
+      const filas = await historialRepository.findByPlayer(player.id);
+      const ids = [...new Set(filas.map((e) => e.clubId))];
+      const entradas = await Promise.all(ids.map((id) => clubRepository.findById(id)));
+      const combinadas = lineaCarreraConActiva(filas, temporadaActiva);
+      setEtapas(combinadas);
+      setClubes(
+        Object.fromEntries(entradas.filter((c) => c != null).map((c) => [c.id, c])),
+      );
+    } finally {
+      setCargando(false);
+    }
+  }, [player, temporadaActiva]);
+
+  // Carga inicial + recarga al volver del /match (Live Stats R4).
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
   return (
     <ScreenContainer title="Mi carrera">
@@ -71,7 +75,7 @@ export default function CareerScreen() {
               return (
                 <View key={etapa.id} style={styles.etapaRow}>
                   <View style={styles.rail}>
-                    <View style={[styles.node, esUltima && styles.nodeActual]} />
+                    <View style={[styles.node, esUltima && etapa.enVivo && styles.nodeActual]} />
                     {!esUltima && <View style={styles.line} />}
                   </View>
                   <View style={[styles.etapaCard, esUltima && styles.etapaCardActual]}>
@@ -106,6 +110,11 @@ export default function CareerScreen() {
                       <Stat label="Goles" valor={etapa.goles} />
                       <Stat label="Asist." valor={etapa.asistencias} />
                     </View>
+                    {etapa.enVivo && (
+                      <AppText variant="caption" color="success" style={styles.liveBadge}>
+                        En vivo
+                      </AppText>
+                    )}
                   </View>
                 </View>
               );
@@ -208,4 +217,5 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   stat: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
   actions: { gap: spacing.md, paddingBottom: spacing.md },
+  liveBadge: { marginTop: spacing.xs, textAlign: 'right' },
 });
