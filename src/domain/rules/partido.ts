@@ -254,7 +254,12 @@ export function resultadoDesdeLineaTiempo(lineaTiempo: EventoTimeline[]): Result
   const golesFavor = contarGoles(lineaTiempo, 'nosotros');
   const golesContra = contarGoles(lineaTiempo, 'rival');
   const golesJugador = lineaTiempo.filter(
-    (e) => e.tipo === 'gol' && e.equipo === 'nosotros' && e.jugador === 'jugador',
+    (e) =>
+      e.equipo === 'nosotros' &&
+      e.jugador === 'jugador' &&
+      (e.tipo === 'gol' ||
+        ((e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') &&
+          e.situacion?.resultado === 'gol')),
   ).length;
   const asistenciasJugador = lineaTiempo.filter((e) => e.asistenciaJugador === true).length;
 

@@ -59,10 +59,10 @@ Chain strategy: stacked-to-main
 
 ### 3b — UI + Audit (PR 3b)
 
-- [ ] 3b.1 `src/presentation/components/.../shot-target-grid.tsx` new: `react-native-svg` goal with six tappable zones, theme colors.
-- [ ] 3b.2 `src/app/match.tsx`: pause replay at interactive situation; render grid; OPPONENT penalty presents 6-zone **SAVE** prompt (penalty-minigame "Pause and prompt"); apply chosen zone; feedback 0.6–0.8s (ball→zone, keeper→precomputed side, result color/icon); timeout → `resolverInaccion`; resume at next minute.
-- [ ] 3b.3 Audit `resultadoDesdeLineaTiempo`, `contarGoles`, `golesDe` in `partido.ts` + `match.tsx` `tipo==='penal'` filters → include `situacion` events; keep scorecard/determinism safe.
-- [ ] 3b.4 Verify PR3b: `npx tsc --noEmit` + `npx expo lint` clean.
+- [x] 3b.1 `src/presentation/components/.../shot-target-grid.tsx` new: `react-native-svg` goal with six tappable zones, theme colors.
+- [x] 3b.2 `src/app/match.tsx`: pause replay at interactive situation; render grid; OPPONENT penalty presents 6-zone **SAVE** prompt (penalty-minigame "Pause and prompt"); apply chosen zone; feedback 0.6–0.8s (ball→zone, keeper→precomputed side, result color/icon); timeout → `resolverInaccion`; resume at next minute.
+- [x] 3b.3 Audit `resultadoDesdeLineaTiempo`, `contarGoles`, `golesDe` in `partido.ts` + `match.tsx` `tipo==='penal'` filters → include `situacion` events; keep scorecard/determinism safe.
+- [x] 3b.4 Verify PR3b: `npx tsc --noEmit` + `npx expo lint` clean.
 
 ### 3c — Legacy Teardown (PR 3c, grep-first)
 

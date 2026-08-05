@@ -11,6 +11,7 @@ import {
   resolverPenalConEleccion,
   resolverTiroLibreConEleccion,
   type EventoTimeline,
+  type ResultadoSituacion,
   type TipoEvento,
   type ZonaDisparo,
 } from '@/domain/rules/partido';
@@ -28,6 +29,7 @@ import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton } from '@/presentation/components/atoms/button';
 import { GoalBanner } from '@/presentation/components/organisms/goal-banner';
+import { ShotTargetGrid } from '@/presentation/components/organisms/shot-target-grid';
 import { colors, fontSize, radius, spacing } from '@/presentation/theme';
 
 /** Pausa narrada entre 1T y 2T (real, no suma al reloj de partido). */
@@ -35,12 +37,8 @@ const DESCANSO_MS = 2_500;
 
 type Fase = 'jugando' | 'descanso' | 'penal' | 'final';
 
-/** Zonas de la fila superior del grid (PR3a); el grid completo llega en PR3b. */
-const DIRECCIONES: readonly ZonaDisparo[] = [
-  'arriba-izquierda',
-  'arriba-centro',
-  'arriba-derecha',
-];
+/** Feedback breve del grid antes de continuar (spec R9: 600–800 ms). */
+const FEEDBACK_MS = 700;
 
 const ICONO_EVENTO: Record<TipoEvento, keyof typeof Ionicons.glyphMap> = {
   gol: 'football',
@@ -70,6 +68,7 @@ export default function MatchScreen() {
   const [minuto, setMinuto] = useState(1);
   const [visibles, setVisibles] = useState<EventoTimeline[]>([]);
   const [penalActivo, setPenalActivo] = useState<EventoTimeline | null>(null);
+  const [feedback, setFeedback] = useState<{ zona: ZonaDisparo; resultado: ResultadoSituacion } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ texto: string; nombre: string; minuto: number } | null>(null);
@@ -83,6 +82,7 @@ export default function MatchScreen() {
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const descansoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const penalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolverPenalRef = useRef<(eleccion: ZonaDisparo | null) => void>(() => {});
   const reanudarRef = useRef<() => void>(() => {});
   const partidoIdRef = useRef<number | null>(null);
@@ -173,7 +173,10 @@ export default function MatchScreen() {
     }, 100);
   }, [lineaTiempo, pausar, relojSv]);
 
-  /** Aplica la nueva timeline resuelta, la persiste y reanuda el reloj. */
+    /**
+   * Resuelve la situación interactiva con la zona elegida: aplica el resolver
+   * puro del dominio, muestra el feedback 0.6–0.8 s (spec R9) y reanuda.
+   */
   const resolverPenal = useCallback(
     (eleccion: ZonaDisparo | null) => {
       if (penalTimeoutRef.current) {
@@ -188,12 +191,30 @@ export default function MatchScreen() {
           : esTiroLibre
             ? resolverTiroLibreConEleccion(lineaTiempo, penalActivo.minuto, eleccion)
             : resolverPenalConEleccion(lineaTiempo, penalActivo.minuto, eleccion);
-      actualizarLineaTiempo(nueva);
-      void guardarLineaTiempo(sesion.partido.id, nueva); // D1: sobrevive al fondo
+      const resuelta = nueva.find((e) => e.minuto === penalActivo.minuto && e.tipo === penalActivo.tipo);
+      const resultado = resuelta?.situacion?.resultado ?? 'afuera';
       setPenalActivo(null);
-      setFase('jugando');
-      faseRef.current = 'jugando';
-      reanudar();
+
+      if (eleccion == null) {
+        // Timeout: resolver y continuar de inmediato (spec R5).
+        actualizarLineaTiempo(nueva);
+        void guardarLineaTiempo(sesion.partido.id, nueva); // D1: sobrevive al fondo
+        setFase('jugando');
+        faseRef.current = 'jugando';
+        reanudar();
+        return;
+      }
+
+      // Feedback breve con la zona elegida y el resultado ya resuelto.
+      setFeedback({ zona: eleccion, resultado });
+      feedbackTimeoutRef.current = setTimeout(() => {
+        setFeedback(null);
+        actualizarLineaTiempo(nueva);
+        void guardarLineaTiempo(sesion.partido.id, nueva);
+        setFase('jugando');
+        faseRef.current = 'jugando';
+        reanudar();
+      }, FEEDBACK_MS);
     },
     [sesion, penalActivo, lineaTiempo, actualizarLineaTiempo, reanudar],
   );
@@ -253,6 +274,7 @@ export default function MatchScreen() {
         pausar();
         if (descansoTimeoutRef.current) clearTimeout(descansoTimeoutRef.current);
         if (penalTimeoutRef.current) clearTimeout(penalTimeoutRef.current);
+        if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
       };
     }, [sesion, reanudar, pausar]),
   );
@@ -391,25 +413,25 @@ export default function MatchScreen() {
           </View>
         )}
 
-        {/* Mini-juego de penal (spec penalty R1-R5) */}
+        {/* Situación interactiva: penal o tiro libre (spec R1-R9, PR3b) */}
         {fase === 'penal' && penalActivo && (
           <View style={styles.overlay}>
-            <AppText variant="heading" uppercase>¡Penal!</AppText>
+            <AppText variant="heading" uppercase>
+              {penalActivo.tipo === 'tiro-libre-interactivo' ? '¡Tiro libre!' : '¡Penal!'}
+            </AppText>
             <AppText variant="body" color="textSecondary" style={styles.penalTexto}>
               {penalActivo.descripcion}
             </AppText>
-            <View style={styles.direcciones}>
-              {DIRECCIONES.map((dir) => (
-                <Pressable
-                  key={dir}
-                  onPress={() => resolverPenal(dir)}
-                  style={({ pressed }) => [styles.dirButton, pressed && styles.pressed]}>
-                  <AppText variant="label" uppercase color="onAccent">
-                    {dir}
-                  </AppText>
-                </Pressable>
-              ))}
-            </View>
+            <ShotTargetGrid
+              ladoArquero={penalActivo.situacion?.ladoArquero}
+              ladoDefensor={
+                penalActivo.tipo === 'tiro-libre-interactivo'
+                  ? penalActivo.situacion?.ladoDefensor
+                  : undefined
+              }
+              feedback={feedback}
+              onElegir={(zona) => resolverPenal(zona)}
+            />
             <AppText variant="caption" color="textMuted">
               {`Tenés ${PENAL_TIMEOUT_MS / 1000} s para decidir.`}
             </AppText>
@@ -586,18 +608,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   penalTexto: { textAlign: 'center' },
-  direcciones: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  dirButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    minWidth: 96,
-    alignItems: 'center',
-  },
   pressed: { opacity: 0.7 },
   scorecardWrap: {
     flex: 1,
