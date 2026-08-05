@@ -18,9 +18,11 @@ import {
 import {
   DURACION_1T,
   DURACION_2T,
-  DURACION_TOTAL_MS,
   PENAL_TIMEOUT_MS,
   minutoAOffsetMs,
+  generarAgregado,
+  calcularDuracionTotal,
+  calcularMinutoConAgregado,
 } from '@/shared/constants/partido';
 import { finalizarPartido, guardarLineaTiempo } from '@/services/partidoService';
 import { partidoRepository } from '@/data/repositories/partido-repository';
@@ -73,6 +75,10 @@ export default function MatchScreen() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ texto: string; nombre: string; minuto: number } | null>(null);
+  const [esAgregado, setEsAgregado] = useState(false);
+  const [minutoAgregado, setMinutoAgregado] = useState(0);
+  const [agregadoMs] = useState(() => generarAgregado());
+  const [duracionTotal] = useState(() => calcularDuracionTotal(agregadoMs));
 
   const relojRef = useRef(0);
   const indiceRef = useRef(0);
@@ -92,7 +98,7 @@ export default function MatchScreen() {
   const relojSv = useSharedValue(0);
 
   const barraEstilo = useAnimatedStyle(() => ({
-    width: `${(relojSv.value / DURACION_TOTAL_MS) * 100}%`,
+    width: `${(relojSv.value / duracionTotal) * 100}%`,
   }));
 
   const lineaTiempo = sesion?.lineaTiempo ?? [];
@@ -113,10 +119,12 @@ export default function MatchScreen() {
       relojRef.current = t;
       relojSv.value = t;
 
-      const m = minutoDeReloj(t);
-      if (m !== minutoRef.current) {
-        minutoRef.current = m;
-        setMinuto(m);
+      const info = calcularMinutoConAgregado(t, duracionTotal);
+      if (info.minuto !== minutoRef.current || info.esAgregado !== esAgregado) {
+        minutoRef.current = info.minuto;
+        setMinuto(info.minuto);
+        setEsAgregado(info.esAgregado);
+        setMinutoAgregado(info.minutoAgregado);
       }
 
       // Cruces de eventos: avanzar índice y materializar los visibles.
@@ -166,13 +174,13 @@ export default function MatchScreen() {
       }
 
       // Fin del partido (2T + agregado completos).
-      if (t >= DURACION_TOTAL_MS) {
+      if (t >= duracionTotal) {
         pausar();
         setFase('final');
         faseRef.current = 'final';
       }
     }, 100);
-  }, [lineaTiempo, pausar, relojSv]);
+  }, [lineaTiempo, pausar, relojSv, duracionTotal, esAgregado]);
 
     /**
    * Resuelve la situación interactiva con la zona elegida: aplica el resolver
@@ -378,7 +386,11 @@ export default function MatchScreen() {
             {etiquetaFase}
           </AppText>
           <AppText variant="title" style={styles.minutoTexto}>
-            {fase === 'final' ? '90+' : `${minuto}'`}
+            {fase === 'final'
+              ? '90+'
+              : esAgregado
+                ? `90+${minutoAgregado}`
+                : `${minuto}'`}
           </AppText>
           <AppText variant="caption" color="textMuted">
             {fase === 'final' ? 'Partido terminado' : 'Minuto de partido'}
@@ -501,15 +513,6 @@ export default function MatchScreen() {
       />
     </SafeAreaView>
   );
-}
-
-/** Minuto de partido derivado del reloj del replay (1-90). */
-function minutoDeReloj(ms: number): number {
-  if (ms < DURACION_1T) return Math.max(1, Math.min(45, 1 + Math.floor((ms / DURACION_1T) * 45)));
-  if (ms < DURACION_1T + DURACION_2T) {
-    return Math.max(46, Math.min(90, 46 + Math.floor(((ms - DURACION_1T) / DURACION_2T) * 45)));
-  }
-  return 90;
 }
 
 /** Cuenta goles de un equipo en una subtimeline (goles + situaciones convertidas). */
