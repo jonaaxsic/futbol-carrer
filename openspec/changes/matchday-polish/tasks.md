@@ -90,7 +90,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 6 — Verify / Close
 
-- [ ] 6.1 `npx tsc --noEmit` clean.
-- [ ] 6.2 `npx expo lint` clean.
+- [x] 6.1 `npx tsc --noEmit` clean.
+- [x] 6.2 `npx expo lint` clean.
 - [ ] 6.3 Expo Go Android 15/16 visual check: gesture-bar clearance, resume banner, 6-zone grid, crest, accent contrast.
-- [ ] 6.4 `grep -r penalty src/app` clean after teardown.
+- [x] 6.4 `grep -r penalty src/app` clean after teardown.

@@ -52,7 +52,7 @@ const ICONO_EVENTO: Record<TipoEvento, keyof typeof Ionicons.glyphMap> = {
 };
 
 /**
- * REPLAY DE PARTIDO (spec matchday-experience + penalty-minigame, PR3).
+ * REPLAY DE PARTIDO (spec matchday-experience + interactive-situations, PR3).
  * Overlay fuera de (main): un reloj JS (100 ms) sobre una shared value
  * Reanimated; React state solo en cruces de eventos y 1 Hz del minuto (D3).
  * Fases: jugando (1T/2T/agregado) → descanso → penal (≤1, timeout 8 s) → final.
