@@ -65,12 +65,6 @@ export default function LoginScreen() {
             disabled={cargando}
             onPress={entrarComoInvitado}
           />
-
-          <Pressable onPress={() => router.push('/country')}>
-            <AppText variant="caption" style={styles.link} color="textSecondary">
-              ¿No tienes cuenta? Crea una nueva
-            </AppText>
-          </Pressable>
         </View>
       </View>
 
