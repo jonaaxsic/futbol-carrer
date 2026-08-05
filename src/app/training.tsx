@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import type { Entrenamiento, TipoEntrenamiento } from '@/domain/entities/entrenamiento';
 import { TIPOS_ENTRENAMIENTO } from '@/domain/rules/progresion';
+import { STAT_LABELS, type StatName } from '@/domain/entities/stats';
 import {
   formatearCountdown,
   useCountdownTraining,
@@ -44,7 +45,7 @@ export default function TrainingScreen() {
   const [cargando, setCargando] = useState(true);
   const [elegido, setElegido] = useState<TipoEntrenamiento | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ ovrDelta: number; lesion: boolean } | null>(null);
+  const [resultado, setResultado] = useState<{ statsDelta: Partial<Record<StatName, number>>; ovrDelta: number; lesion: boolean } | null>(null);
   const [iniciando, setIniciando] = useState(false);
 
   // Carga inicial SOLO cuando cambia el jugador. El primer setState ocurre
@@ -149,6 +150,14 @@ export default function TrainingScreen() {
               {resultado.ovrDelta >= 0 ? '+' : ''}
               {resultado.ovrDelta} OVR
             </AppText>
+            {Object.entries(resultado.statsDelta).map(([stat, delta]) => {
+              if (delta == null || delta === 0) return null;
+              return (
+                <AppText key={stat} variant="body" color={delta > 0 ? 'success' : 'danger'}>
+                  {STAT_LABELS[stat as StatName]}: {delta > 0 ? '+' : ''}{delta}
+                </AppText>
+              );
+            })}
             {resultado.lesion && (
               <AppText variant="body" color="danger">
                 Te lesionaste durante la sesión.

@@ -4,6 +4,7 @@ import type { EventoLog } from '../entities/evento-log';
 import type { HistorialEtapa } from '../entities/historial-carrera';
 import type { NuevoPlayer, Player } from '../entities/player';
 import type { NuevoPartido, Partido } from '../entities/partido';
+import type { PlayerStats } from '../entities/stats';
 import type { NuevaTemporada, Temporada } from '../entities/temporada';
 import type { NivelTrofeo, Trofeo } from '../entities/trofeo';
 
@@ -20,6 +21,8 @@ export interface PlayerRepository {
   /** Jugador con carrera activa (uno solo por instalación). */
   findActivo(): Promise<Player | null>;
   updateOvr(id: number, ovr: number): Promise<void>;
+  /** Actualiza las stats específicas del jugador (§14). */
+  updateStats(id: number, stats: PlayerStats): Promise<void>;
   setClub(id: number, clubId: number | null): Promise<void>;
   /** Cambia la posición del jugador (solo vía flujo de cambio de club, D6). */
   setPosicion(id: number, posicion: string): Promise<void>;

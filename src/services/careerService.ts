@@ -1,6 +1,7 @@
 import type { NuevoPlayer, Player } from '@/domain/entities/player';
 import type { Temporada } from '@/domain/entities/temporada';
 import type { Trofeo } from '@/domain/entities/trofeo';
+import { statsIniciales } from '@/domain/entities/stats';
 import { validarOvr } from '@/domain/value-objects/ovr';
 import type { SeasonMode } from '@/shared/types';
 import type { PlayerRepository, TemporadaRepository } from '@/domain/interfaces/repositories';
@@ -38,7 +39,9 @@ export async function iniciarCarrera(datos: DatosInicioCarrera): Promise<Carrera
   const club = await clubRepository.findById(datos.clubId);
   if (!club) throw new Error('Club inexistente: no se puede iniciar carrera');
 
-  const player = await playerRepository.create({ ...datos.player, clubId: club.id });
+  // §14: inicializar stats según la posición del jugador.
+  const stats = statsIniciales(datos.player.posicion);
+  const player = await playerRepository.create({ ...datos.player, stats, clubId: club.id });
   try {
     const temporada = await temporadaRepository.create({
       playerId: player.id,

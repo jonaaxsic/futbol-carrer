@@ -2,6 +2,7 @@ import type {
   PlayerRepository,
 } from '@/domain/interfaces/repositories';
 import type { NuevoPlayer, Player } from '@/domain/entities/player';
+import type { PlayerStats } from '@/domain/entities/stats';
 
 import { getDb } from '../db/client';
 import { filaToPlayer, type PlayerRow } from '../mappers/player-mapper';
@@ -14,12 +15,13 @@ export const playerRepository: PlayerRepository = {
   async create(data: NuevoPlayer): Promise<Player> {
     const db = await getDb();
     const ahora = Date.now();
+    const statsJson = data.stats ? JSON.stringify(data.stats) : null;
     const resultado = await db.runAsync(
       `INSERT INTO player
          (nombre, apellido, numero, pais, posicion, pierna, edad, ovr,
-          club_id, estado, temporada_actual, energia, energia_max,
+          stats, club_id, estado, temporada_actual, energia, energia_max,
           energia_actualizada_ts, created_at_ts)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.nombre,
         data.apellido ?? null,
@@ -29,6 +31,7 @@ export const playerRepository: PlayerRepository = {
         data.pierna,
         data.edad,
         data.ovr,
+        statsJson,
         data.clubId ?? null,
         'activo',
         1,
@@ -66,6 +69,11 @@ export const playerRepository: PlayerRepository = {
   async updateOvr(id: number, ovr: number): Promise<void> {
     const db = await getDb();
     await db.runAsync('UPDATE player SET ovr = ? WHERE id = ?', [ovr, id]);
+  },
+
+  async updateStats(id: number, stats: PlayerStats): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE player SET stats = ? WHERE id = ?', [JSON.stringify(stats), id]);
   },
 
   async setClub(id: number, clubId: number | null): Promise<void> {

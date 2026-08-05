@@ -1,4 +1,5 @@
 import type { EstadoJugador, Pierna, Player } from '@/domain/entities/player';
+import type { PlayerStats } from '@/domain/entities/stats';
 import { esPosicion, type Posicion } from '@/domain/value-objects/posicion';
 import type { Country } from '@/shared/constants/game';
 
@@ -13,6 +14,7 @@ export interface PlayerRow {
   pierna: string;
   edad: number;
   ovr: number;
+  stats: string | null;
   club_id: number | null;
   estado: string;
   temporada_actual: number;
@@ -42,6 +44,17 @@ export function filaToPlayer(fila: PlayerRow): Player {
   if (!esEstado(fila.estado)) {
     throw new Error(`Estado inválido en BD: ${fila.estado}`);
   }
+
+  // Parsear stats JSON (fallback: stats vacías para filas antiguas).
+  let stats: PlayerStats = {};
+  if (fila.stats) {
+    try {
+      stats = JSON.parse(fila.stats) as PlayerStats;
+    } catch {
+      stats = {};
+    }
+  }
+
   return {
     id: fila.id,
     nombre: fila.nombre,
@@ -52,6 +65,7 @@ export function filaToPlayer(fila: PlayerRow): Player {
     pierna: fila.pierna,
     edad: fila.edad,
     ovr: fila.ovr,
+    stats,
     clubId: fila.club_id,
     estado: fila.estado,
     temporadaActual: fila.temporada_actual,

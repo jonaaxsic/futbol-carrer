@@ -1,6 +1,7 @@
 import type { Country } from '@/shared/constants/game';
 
 import type { Posicion } from '../value-objects/posicion';
+import type { PlayerStats } from './stats';
 
 export type Pierna = 'izquierda' | 'derecha';
 export type EstadoJugador = 'activo' | 'retirado';
@@ -17,6 +18,8 @@ export interface Player {
   pierna: Pierna;
   edad: number;
   ovr: number;
+  /** Stats específicas del jugador (§14). */
+  stats: PlayerStats;
   /** Club actual (null cuando no hay carrera activa). */
   clubId: number | null;
   estado: EstadoJugador;
@@ -41,5 +44,6 @@ export interface NuevoPlayer {
   pierna: Pierna;
   edad: number;
   ovr: number;
+  stats?: PlayerStats;
   clubId?: number | null;
 }
