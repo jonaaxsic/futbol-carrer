@@ -8,6 +8,7 @@ import { clubRepository } from '@/data/repositories/club-repository';
 import { obtenerCalendarioTemporada } from '@/services/calendarService';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
+import { ClubCrest } from '@/presentation/components/atoms/club-crest';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 import { formatearFechaCorta, formatearMesAnio } from '@/shared/utils/fechas';
@@ -19,7 +20,7 @@ import { formatearFechaCorta, formatearMesAnio } from '@/shared/utils/fechas';
 export default function CalendarScreen() {
   const temporadaActiva = usePlayerStore((s) => s.temporadaActiva);
   const [partidos, setPartidos] = useState<Partido[]>([]);
-  const [clubes, setClubes] = useState<Record<number, string>>({});
+  const [clubes, setClubes] = useState<Record<number, Club>>({});
   const [cargando, setCargando] = useState(true);
   const [mesIndex, setMesIndex] = useState(0);
 
@@ -35,7 +36,7 @@ export default function CalendarScreen() {
           setPartidos(todos);
           setClubes(
             Object.fromEntries(
-              entradas.filter((c): c is Club => c != null).map((c) => [c.id, c.nombre]),
+              entradas.filter((c): c is Club => c != null).map((c) => [c.id, c]),
             ),
           );
           // Arrancar en el mes del próximo partido no jugado.
@@ -119,12 +120,15 @@ export default function CalendarScreen() {
                   </AppText>
                 </View>
                 <View style={styles.matchInfo}>
-                  <AppText
-                    variant="body"
-                    color={p.jugo ? 'textMuted' : 'textPrimary'}>
-                    {p.local ? 'vs ' : 'en casa de '}
-                    {clubes[p.rivalClubId] ?? '—'}
-                  </AppText>
+                  <View style={styles.rivalRow}>
+                    <ClubCrest club={clubes[p.rivalClubId]} size={18} />
+                    <AppText
+                      variant="body"
+                      color={p.jugo ? 'textMuted' : 'textPrimary'}>
+                      {p.local ? 'vs ' : 'en casa de '}
+                      {clubes[p.rivalClubId]?.nombre ?? '—'}
+                    </AppText>
+                  </View>
                   <AppText variant="caption">{p.competencia}</AppText>
                 </View>
                 {p.jugo ? (
@@ -211,6 +215,7 @@ const styles = StyleSheet.create({
   },
   matchRowJugado: { opacity: 0.75 },
   matchDate: { width: 64 },
-  matchInfo: { flex: 1 },
+  matchInfo: { flex: 1, gap: 2 },
+  rivalRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sinPartidos: { textAlign: 'center', marginTop: spacing.lg },
 });

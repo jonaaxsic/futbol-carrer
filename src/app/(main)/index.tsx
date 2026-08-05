@@ -33,6 +33,8 @@ import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
 import { usePartidoVistaStore } from '@/state/usePartidoVistaStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
+import { ClubCrest } from '@/presentation/components/atoms/club-crest';
+import { useAccentColors } from '@/presentation/theme/use-accent';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { MatchAlertBanner } from '@/presentation/components/molecules/match-alert-banner';
 import { PausedMatchBanner } from '@/presentation/components/organisms/paused-match-banner';
@@ -56,6 +58,7 @@ export default function DashboardScreen() {
   const ocultarBanner = usePartidoVistaStore((s) => s.ocultarBanner);
 
   const [club, setClub] = useState<Club | null>(null);
+  const acento = useAccentColors(club);
   const [pendientes, setPendientes] = useState<Partido[]>([]);
   const [rivales, setRivales] = useState<Record<number, Club>>({});
   const [cargando, setCargando] = useState(true);
@@ -257,16 +260,16 @@ export default function DashboardScreen() {
               {player.edad} años · {player.pais} · {player.posicion}
             </AppText>
           </View>
-          <View style={styles.ovrBadge}>
-            <AppText variant="caption" color="onAccent">OVR</AppText>
-            <AppText variant="heading" color="onAccent">{player.ovr}</AppText>
+          <View style={[styles.ovrBadge, { backgroundColor: acento.accent }]}>
+            <AppText variant="caption" style={{ color: acento.onAccent }}>OVR</AppText>
+            <AppText variant="heading" style={{ color: acento.onAccent }}>{player.ovr}</AppText>
           </View>
         </View>
 
         {/* Club */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="shield" size={18} color={colors.textSecondary} />
+            <ClubCrest club={club} size={20} />
             <AppText variant="label" uppercase color="textSecondary">Club</AppText>
           </View>
           <AppText variant="body">{club?.nombre ?? '—'}</AppText>

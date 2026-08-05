@@ -28,6 +28,7 @@ import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton } from '@/presentation/components/atoms/button';
+import { ClubCrest } from '@/presentation/components/atoms/club-crest';
 import { GoalBanner } from '@/presentation/components/organisms/goal-banner';
 import { ShotTargetGrid } from '@/presentation/components/organisms/shot-target-grid';
 import { colors, fontSize, radius, spacing } from '@/presentation/theme';
@@ -349,6 +350,7 @@ export default function MatchScreen() {
       <View style={styles.content}>
         {/* Header: rival + competencia + marcador en vivo */}
         <View style={styles.header}>
+          <ClubCrest club={clubRival} size={32} />
           <View style={styles.headerInfo}>
             <AppText variant="heading" numberOfLines={1}>
               {clubRival.nombre}

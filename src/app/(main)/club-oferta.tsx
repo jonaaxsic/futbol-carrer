@@ -15,6 +15,7 @@ import { useCierreStore } from '@/state/useCierreStore';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton } from '@/presentation/components/atoms/button';
+import { ClubCrest } from '@/presentation/components/atoms/club-crest';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
@@ -171,7 +172,7 @@ export default function ClubOfertaScreen() {
                     pressed && styles.pressed,
                   ]}>
                   <View style={styles.fila}>
-                    <Ionicons name="shield" size={20} color={colors.textSecondary} />
+                    <ClubCrest club={c} size={22} />
                     <View style={styles.filaTexto}>
                       <AppText variant="body">{c.nombre}</AppText>
                       <AppText variant="caption" color="textMuted">

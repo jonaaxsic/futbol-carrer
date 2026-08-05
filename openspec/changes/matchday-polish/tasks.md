@@ -81,12 +81,12 @@ Chain strategy: stacked-to-main
 
 ## Phase 5 — Slice 4: Club Identity (PR 5)
 
-- [ ] 5.1 `src/domain/rules/club-colors.ts` new: `CLUB_COLORS` (primario/secundario per seed club key), `coloresDeClub(club)`; DO NOT touch `seed-clubes.ts`.
-- [ ] 5.2 `src/presentation/theme/use-accent.ts` `useAccentColors()`: dynamic accent from player club primario → `{ accent, onAccent }` via luminance `colorTextoDe`; white fallback; onboarding pre-club stays white; applied to prominent interactive surfaces only.
-- [ ] 5.3 `club-crest.tsx` new: procedural SVG shield + initials + primary/secondary colors from `escudoKey`.
-- [ ] 5.4 Mount `ClubCrest` on dashboard `(main)/index.tsx`, calendar, `club-oferta.tsx`, and match scorecard.
-- [ ] 5.5 Semantic colors (success/danger/warning) fixed + contrast review against dynamic accent.
-- [ ] 5.6 Verify PR5: `npx tsc --noEmit` + `npx expo lint` clean.
+- [x] 5.1 `src/domain/rules/club-colors.ts` new: `CLUB_COLORS` (primario/secundario per seed club key), `coloresDeClub(club)`; DO NOT touch `seed-clubes.ts`.
+- [x] 5.2 `src/presentation/theme/use-accent.ts` `useAccentColors()`: dynamic accent from player club primario → `{ accent, onAccent }` via luminance `colorTextoDe`; white fallback; onboarding pre-club stays white; applied to prominent interactive surfaces only.
+- [x] 5.3 `club-crest.tsx` new: procedural SVG shield + initials + primary/secondary colors from `escudoKey`.
+- [x] 5.4 Mount `ClubCrest` on dashboard `(main)/index.tsx`, calendar, `club-oferta.tsx`, and match scorecard.
+- [x] 5.5 Semantic colors (success/danger/warning) fixed + contrast review against dynamic accent.
+- [x] 5.6 Verify PR5: `npx tsc --noEmit` + `npx expo lint` clean.
 
 ## Phase 6 — Verify / Close
 
