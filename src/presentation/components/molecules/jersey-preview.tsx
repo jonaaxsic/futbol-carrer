@@ -10,10 +10,9 @@ import {
 import { AppText } from '@/presentation/components/atoms/app-text';
 
 /**
- * Molecule: camiseta de fútbol SVG (Sprint A, plan punto 3).
- * Silueta vectorial pintada por código con los colores del país
- * (torso = primario; cuello/mangas/franjas = secundario) y el
- * nombre + número superpuestos (legibles sobre el primario).
+ * Molecule: camiseta de fútbol SVG rediseñada.
+ * Silueta realista con: torso, mangas, cuello en V, franjas/bicolor según país.
+ * Nombre arriba al centro, número grande en el centro del torso.
  */
 export interface JerseyPreviewProps {
   /** Apellido/apodo mostrado sobre el torso. */
@@ -28,20 +27,20 @@ export interface JerseyPreviewProps {
   colores?: ColoresNacionales;
 }
 
-/** Silueta de torso + mangas cortas (viewBox 120x138, centro x=60). */
+/** Silueta de torso + mangas cortas (viewBox 140 160). */
 const TORSO =
-  'M60 22 C48 22 43 28 41 36 L33 42 L31 64 L31 112 C31 122 39 128 50 128 L70 128 C81 128 89 122 89 112 L89 64 L87 42 L79 36 C77 28 72 22 60 22 Z';
+  'M70 28 C55 28 48 35 45 45 L35 52 L30 75 L30 140 C30 150 40 155 55 155 L85 155 C100 155 110 150 110 140 L110 75 L105 52 L95 45 C92 35 85 28 70 28 Z';
 
-/** Cuello redondeado (banda del secundario). */
-const COLLAR = 'M45 17 Q60 6 75 17 L75 21 Q60 11 45 21 Z';
+/** Cuello en V */
+const COLLAR_V = 'M52 25 L70 40 L88 25 L85 20 Q70 30 55 20 Z';
 
-/** Franjas verticales del patrón 'franjas' (dentro del clip del torso). */
+/** Franjas verticales del patrón 'franjas' */
 const FRANJAS: readonly { x: number; w: number }[] = [
-  { x: 33, w: 7 },
-  { x: 45, w: 7 },
-  { x: 57, w: 7 },
-  { x: 69, w: 7 },
-  { x: 81, w: 7 },
+  { x: 35, w: 8 },
+  { x: 51, w: 8 },
+  { x: 67, w: 8 },
+  { x: 83, w: 8 },
+  { x: 99, w: 8 },
 ];
 
 export function JerseyPreview({
@@ -53,11 +52,11 @@ export function JerseyPreview({
 }: JerseyPreviewProps) {
   const colores = coloresOverride ?? coloresDePais(pais);
   const texto = colorTextoDe(colores);
-  const alto = Math.round(tamaño * (138 / 120));
+  const alto = Math.round(tamaño * (160 / 140));
 
   return (
     <View style={{ width: tamaño, height: alto }}>
-      <Svg width={tamaño} height={alto} viewBox="0 0 120 138">
+      <Svg width={tamaño} height={alto} viewBox="0 0 140 160">
         <Defs>
           <ClipPath id="torso-clip">
             <Path d={TORSO} />
@@ -66,23 +65,26 @@ export function JerseyPreview({
 
         {/* Mangas (secundario) */}
         <Rect
-          x="8"
-          y="34"
-          width="36"
-          height="32"
-          rx="12"
+          x="5"
+          y="38"
+          width="40"
+          height="36"
+          rx="14"
           fill={colores.secundario}
-          transform="rotate(-16 26 50)"
+          transform="rotate(-18 25 56)"
         />
         <Rect
-          x="76"
-          y="34"
-          width="36"
-          height="32"
-          rx="12"
+          x="95"
+          y="38"
+          width="40"
+          height="36"
+          rx="14"
           fill={colores.secundario}
-          transform="rotate(16 94 50)"
+          transform="rotate(18 115 56)"
         />
+
+        {/* Banda de hombro (secundario) */}
+        <Rect x="35" y="30" width="70" height="6" rx="3" fill={colores.secundario} />
 
         {/* Torso (primario) */}
         <Path d={TORSO} fill={colores.primario} />
@@ -91,29 +93,39 @@ export function JerseyPreview({
         <G clipPath="url(#torso-clip)">
           {colores.patron === 'franjas' &&
             FRANJAS.map((f) => (
-              <Rect key={f.x} x={f.x} y="30" width={f.w} height="100" fill={colores.secundario} />
+              <Rect key={f.x} x={f.x} y="35" width={f.w} height="120" fill={colores.secundario} />
             ))}
           {colores.patron === 'bicolor' && (
-            <Rect x="31" y="30" width="29" height="100" fill={colores.secundario} />
+            <Rect x="35" y="35" width="35" height="120" fill={colores.secundario} />
           )}
           {/* Dobladillo inferior */}
-          <Rect x="31" y="118" width="58" height="10" fill={colores.secundario} />
+          <Rect x="35" y="148" width="70" height="12" fill={colores.secundario} />
         </G>
 
-        {/* Cuello */}
-        <Path d={COLLAR} fill={colores.secundario} />
+        {/* Cuello en V */}
+        <Path d={COLLAR_V} fill={colores.secundario} />
+
+        {/* Detalle del cuello (linea fina) */}
+        <Path d="M52 25 L70 40 L88 25" fill="none" stroke={colores.primario} strokeWidth="1.5" />
       </Svg>
 
-      {/* Nombre + número superpuestos (texto RN, no SVG) */}
+      {/* Nombre + número superpuestos */}
       <View style={styles.texto} pointerEvents="none">
-        <AppText
-          variant="caption"
-          style={[styles.nombre, { color: texto, fontSize: Math.max(10, tamaño * 0.055) }]}>
-          {(nombre ?? 'CAMISETA').toUpperCase()}
-        </AppText>
-        <AppText style={[styles.numero, { color: texto, fontSize: Math.max(28, tamaño * 0.32) }]}>
-          {numero ?? '10'}
-        </AppText>
+        {/* Nombre: parte superior de la camiseta */}
+        <View style={styles.nombreContainer}>
+          <AppText
+            variant="caption"
+            style={[styles.nombre, { color: texto, fontSize: Math.max(10, tamaño * 0.06) }]}>
+            {(nombre ?? 'CAMISETA').toUpperCase()}
+          </AppText>
+        </View>
+
+        {/* Número: centro del torso */}
+        <View style={styles.numeroContainer}>
+          <AppText style={[styles.numero, { color: texto, fontSize: Math.max(32, tamaño * 0.35) }]}>
+            {numero ?? '10'}
+          </AppText>
+        </View>
       </View>
     </View>
   );
@@ -126,16 +138,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  nombreContainer: {
+    position: 'absolute',
+    top: '22%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingTop: 6,
   },
   nombre: {
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  numeroContainer: {
+    position: 'absolute',
+    top: '42%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   numero: {
-    fontWeight: '800',
+    fontWeight: '900',
   },
 });

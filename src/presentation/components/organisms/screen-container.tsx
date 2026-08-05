@@ -126,11 +126,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     gap: spacing.sm,
-    alignItems: 'center',
   },
 });

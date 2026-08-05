@@ -27,6 +27,7 @@ const sharedStyles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
+    alignSelf: 'stretch', // ← ambos botones siempre mismo ancho
   },
   label: {
     fontSize: 15,
@@ -68,7 +69,7 @@ export function SecondaryButton({ label, disabled, style, children, ...rest }: B
       disabled={disabled}
       style={({ pressed }) => [
         sharedStyles.base,
-        { backgroundColor: 'transparent', borderColor: colors.border },
+        { backgroundColor: 'transparent', borderColor: colors.borderStrong },
         !disabled && pressed && sharedStyles.pressed,
         disabled && sharedStyles.disabled,
         style,
