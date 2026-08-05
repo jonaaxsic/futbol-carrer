@@ -12,13 +12,15 @@ import type {
 } from '@/domain/rules/partido';
 import { resultadoDesdeLineaTiempo } from '@/domain/rules/partido';
 import { clubRepository } from '@/data/repositories/club-repository';
+import { partidoRepository } from '@/data/repositories/partido-repository';
 import {
   obtenerProximosPartidos,
   omitirPartido,
   obtenerCalendarioTemporada,
+  resolverPendientesVencidos,
 } from '@/services/calendarService';
 import { proponerCierre, finalizarCierre } from '@/services/seasonService';
-import { iniciarPartido } from '@/services/partidoService';
+import { iniciarPartido, reanudarPartido } from '@/services/partidoService';
 import {
   energiaActual,
   proximaBarraEn,
@@ -33,6 +35,7 @@ import { AppText } from '@/presentation/components/atoms/app-text';
 import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { MatchAlertBanner } from '@/presentation/components/molecules/match-alert-banner';
+import { PausedMatchBanner } from '@/presentation/components/organisms/paused-match-banner';
 import { colors, radius, spacing } from '@/presentation/theme';
 
 /**
@@ -61,6 +64,8 @@ export default function DashboardScreen() {
   const [resultados, setResultados] = useState<
     { partido: Partido; simulacion: ResultadoSimulacion; rivalNombre: string }[]
   >([]);
+  // PR2: partido pausado (con checkpoint) → banner de reanudación.
+  const [enCurso, setEnCurso] = useState<{ partido: Partido; clubRival: Club } | null>(null);
   // Tick para re-renderizar la energía (regen por tiempo) sin timers de juego.
   const [, setTick] = useState(0);
 
@@ -72,6 +77,8 @@ export default function DashboardScreen() {
   const cargar = useCallback(async () => {
     if (!player || !temporadaActiva) return;
     try {
+      // PR2: reconcilia partidos abandonados (3-0) ANTES de leer el fixture.
+      await resolverPendientesVencidos(temporadaActiva.id);
       const [clubData, partidos, calendario] = await Promise.all([
         player.clubId ? clubRepository.findById(player.clubId) : Promise.resolve(null),
         obtenerProximosPartidos(temporadaActiva.id, 0, 100),
@@ -88,6 +95,15 @@ export default function DashboardScreen() {
         }),
       );
       setRivales(mapa);
+
+      // PR2: partido pausado → banner de reanudación en lugar del CTA Jugar.
+      const enCursoPartido = await partidoRepository.findPartidoEnCurso(temporadaActiva.id);
+      if (enCursoPartido) {
+        const rivalEnCurso = await clubRepository.findById(enCursoPartido.rivalClubId);
+        setEnCurso(rivalEnCurso ? { partido: enCursoPartido, clubRival: rivalEnCurso } : null);
+      } else {
+        setEnCurso(null);
+      }
 
       // Último partido jugado → tarjeta de resultado (al volver del /match).
       const jugados = calendario
@@ -152,6 +168,28 @@ export default function DashboardScreen() {
       router.push('/match');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar el partido');
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function reanudar() {
+    if (!player || !temporadaActiva || !enCurso || ocupado) return;
+    setOcupado(true);
+    setError(null);
+    try {
+      // PR2: reconstruye la sesión desde la timeline persistida; NO recarga energía.
+      const sesion = await reanudarPartido(
+        player,
+        temporadaActiva,
+        enCurso.partido,
+        enCurso.clubRival,
+        enCurso.partido.checkpointFase,
+      );
+      fijarSesion(sesion);
+      router.push('/match');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo reanudar el partido');
     } finally {
       setOcupado(false);
     }
@@ -273,8 +311,19 @@ export default function DashboardScreen() {
           <AppText variant="caption" color="danger">{error}</AppText>
         )}
 
+        {/* Banner de partido pausado (spec paused-match R3/R4): reemplaza el CTA Jugar */}
+        {enCurso != null && (
+          <PausedMatchBanner
+            partido={enCurso.partido}
+            clubRival={enCurso.clubRival}
+            fase={enCurso.partido.checkpointFase}
+            onReanudar={reanudar}
+          />
+        )}
+
         {/* Banner de match-day: partido jugable, sin auto-dismiss (spec R6) */}
-        {primerPartido != null &&
+        {enCurso == null &&
+          primerPartido != null &&
           !primerPartido.suspendido &&
           puedeJugarAhora &&
           !bannerOculto && (
@@ -324,6 +373,11 @@ export default function DashboardScreen() {
                         ]}>
                         <AppText variant="caption" color="onAccent">Omitir</AppText>
                       </Pressable>
+                    ) : enCurso != null ? (
+                      // PR2: hay partido pausado → el fixture no se juega desde acá.
+                      <View style={[styles.chipAccion, styles.chipBloqueado]}>
+                        <AppText variant="caption" color="textMuted">En pausa</AppText>
+                      </View>
                     ) : (
                       <Pressable
                         onPress={() => jugar(p)}

@@ -96,6 +96,14 @@ export interface PartidoRepository {
   ): Promise<void>;
   /** Persiste la timeline del replay (design D1: se guarda al INICIAR el partido). */
   guardarTimeline(id: number, eventosJson: string): Promise<void>;
+  /** Guarda la fase del checkpoint para reanudación (PR2). */
+  guardarCheckpoint(id: number, fase: 'primer_tiempo' | 'entretiempo_o_segundo'): Promise<void>;
+  /** Limpia el checkpoint al finalizar el partido (PR2). */
+  limpiarCheckpoint(id: number): Promise<void>;
+  /** Encuentra el partido en curso (con timeline persistida y no jugado) (PR2). */
+  findPartidoEnCurso(temporadaId: number): Promise<Partido | null>;
+  /** Encuentra partidos abandonados con checkpoint para auto-resolver 3-0 (PR2). */
+  findVencidosConCheckpoint(temporadaId: number, ahoraTs: number): Promise<Partido[]>;
   /** Marca suspendido un partido que el jugador se pierde (lesión/roja). */
   marcarSuspendido(id: number, motivo: string): Promise<void>;
   /** Omite definitivamente un partido suspendido (no suma stats). */

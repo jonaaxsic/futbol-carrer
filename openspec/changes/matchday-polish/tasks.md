@@ -39,13 +39,13 @@ Chain strategy: stacked-to-main
 
 ## Phase 2 — Slice 1: Paused Match (PR 2)
 
-- [ ] 2.1 `src/data/db/migrations/003-checkpoint.ts` new: `ALTER TABLE partido ADD COLUMN checkpoint_fase TEXT` (nullable, additive, reversible DROP); register in `MIGRACIONES`, `VERSION_ACTUAL`→3 via array length.
-- [ ] 2.2 `src/data/.../partido-repository.ts`: `guardarCheckpoint(id,fase)`, `limpiarCheckpoint(id)`, `findPartidoEnCurso(temporadaId)` (`jugo=0 AND eventos_json IS NOT NULL LIMIT 1`), `findVencidosConCheckpoint(temporadaId)` (`checkpoint_fase NOT NULL AND jugo=0 AND fecha_ts < ?`); `filaToPartido` maps optional `checkpointFase`.
-- [ ] 2.3 `src/services/partidoService.ts` `reanudarPartido(player, temporada, partido, clubRival, fase)`: rebuild `PartidoEnCurso` parsing persisted `eventos_json` → `lineaTiempo`; NO sim, NO energy re-charge.
-- [ ] 2.4 `src/app/match.tsx`: replay-start → `guardarCheckpoint(id,'primer_tiempo')`; halftime cross (`t>=DURACION_1T`) → `guardarCheckpoint(id,'entretiempo_o_segundo')`; `finalizarPartido` → `limpiarCheckpoint`; resume init clock `0` or `DURACION_1T`, `descansoHechoRef=true` on 2T resume.
-- [ ] 2.5 `calendarService.resolverPendientesVencidos(temporadaId)`: lazy, idempotent, marks abandoned (`checkpoint_fase NOT NULL`) fixtures `marcarJugado(...,'0-3')` + `limpiarCheckpoint`; invoke from dashboard `cargar()`.
-- [ ] 2.6 Dashboard banner: `paused-match-banner.tsx` + `(main)/index.tsx` show "Partido en pausa vs {rival}" with "Reanudar" (`primer_tiempo`/null) or "Comenzar 2º Tiempo" (`entretiempo`); hide when `findPartidoEnCurso` returns none.
-- [ ] 2.7 Verify PR2: `npx tsc --noEmit` + `npx expo lint` clean.
+- [x] 2.1 `src/data/db/migrations/003-checkpoint.ts` new: `ALTER TABLE partido ADD COLUMN checkpoint_fase TEXT` (nullable, additive, reversible DROP); register in `MIGRACIONES`, `VERSION_ACTUAL`→3 via array length.
+- [x] 2.2 `src/data/.../partido-repository.ts`: `guardarCheckpoint(id,fase)`, `limpiarCheckpoint(id)`, `findPartidoEnCurso(temporadaId)` (`jugo=0 AND eventos_json IS NOT NULL LIMIT 1`), `findVencidosConCheckpoint(temporadaId)` (`checkpoint_fase NOT NULL AND jugo=0 AND fecha_ts < ?`); `filaToPartido` maps optional `checkpointFase`.
+- [x] 2.3 `src/services/partidoService.ts` `reanudarPartido(player, temporada, partido, clubRival, fase)`: rebuild `PartidoEnCurso` parsing persisted `eventos_json` → `lineaTiempo`; NO sim, NO energy re-charge.
+- [x] 2.4 `src/app/match.tsx`: replay-start → `guardarCheckpoint(id,'primer_tiempo')`; halftime cross (`t>=DURACION_1T`) → `guardarCheckpoint(id,'entretiempo_o_segundo')`; `finalizarPartido` → `limpiarCheckpoint`; resume init clock `0` or `DURACION_1T`, `descansoHechoRef=true` on 2T resume.
+- [x] 2.5 `calendarService.resolverPendientesVencidos(temporadaId)`: lazy, idempotent, marks abandoned (`checkpoint_fase NOT NULL`) fixtures `marcarJugado(...,'0-3')` + `limpiarCheckpoint`; invoke from dashboard `cargar()`.
+- [x] 2.6 Dashboard banner: `paused-match-banner.tsx` + `(main)/index.tsx` show "Partido en pausa vs {rival}" with "Reanudar" (`primer_tiempo`/null) or "Comenzar 2º Tiempo" (`entretiempo`); hide when `findPartidoEnCurso` returns none.
+- [x] 2.7 Verify PR2: `npx tsc --noEmit` + `npx expo lint` clean.
 
 ## Phase 3 — Slice 2: Interactive Situations (PR 3a → 3b → 3c)
 

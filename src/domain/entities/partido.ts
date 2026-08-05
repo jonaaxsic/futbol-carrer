@@ -3,6 +3,8 @@
  * Nota: el plan original llamaba a esta tabla `match`, pero MATCH es una
  * palabra reservada de SQLite (cláusula de FTS) → se usa `partido`.
  */
+export type FaseCheckpoint = 'primer_tiempo' | 'entretiempo_o_segundo' | null;
+
 export interface Partido {
   id: number;
   temporadaId: number;
@@ -21,6 +23,8 @@ export interface Partido {
   asistencias: number;
   /** JSON con situaciones del partido (penales, rojas, lesiones...) §4.5. */
   eventosJson: string | null;
+  /** Fase del checkpoint para reanudación de partido pausado (PR2). */
+  checkpointFase: FaseCheckpoint;
 }
 
 /** Datos para insertar un partido del fixture (resto con defaults en BD). */

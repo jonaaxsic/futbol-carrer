@@ -52,6 +52,42 @@ export const partidoRepository: PartidoRepository = {
     await db.runAsync('UPDATE partido SET eventos_json = ? WHERE id = ?', [eventosJson, id]);
   },
 
+  /** Guarda la fase del checkpoint para reanudación (PR2). */
+  async guardarCheckpoint(id: number, fase: 'primer_tiempo' | 'entretiempo_o_segundo'): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE partido SET checkpoint_fase = ? WHERE id = ?', [fase, id]);
+  },
+
+  /** Limpia el checkpoint al finalizar el partido (PR2). */
+  async limpiarCheckpoint(id: number): Promise<void> {
+    const db = await getDb();
+    await db.runAsync('UPDATE partido SET checkpoint_fase = NULL WHERE id = ?', [id]);
+  },
+
+  /** Encuentra el partido en curso (con timeline persistida y no jugado) (PR2). */
+  async findPartidoEnCurso(temporadaId: number): Promise<Partido | null> {
+    const db = await getDb();
+    const fila = await db.getFirstAsync<PartidoRow>(
+      `SELECT * FROM partido
+       WHERE temporada_id = ? AND jugo = 0 AND eventos_json IS NOT NULL
+       ORDER BY fecha_ts ASC LIMIT 1`,
+      temporadaId,
+    );
+    return fila ? filaToPartido(fila) : null;
+  },
+
+  /** Encuentra partidos abandonados con checkpoint para auto-resolver 3-0 (PR2). */
+  async findVencidosConCheckpoint(temporadaId: number, ahoraTs: number): Promise<Partido[]> {
+    const db = await getDb();
+    const filas = await db.getAllAsync<PartidoRow>(
+      `SELECT * FROM partido
+       WHERE temporada_id = ? AND checkpoint_fase IS NOT NULL AND jugo = 0 AND fecha_ts < ?
+       ORDER BY fecha_ts ASC`,
+      [temporadaId, ahoraTs],
+    );
+    return filas.map(filaToPartido);
+  },
+
   /** Marca un partido como suspendido (lesión/expulsión): se omite sin stats. */
   async marcarSuspendido(id: number, motivo: string): Promise<void> {
     const db = await getDb();

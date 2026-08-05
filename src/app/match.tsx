@@ -21,6 +21,7 @@ import {
   minutoAOffsetMs,
 } from '@/shared/constants/partido';
 import { finalizarPartido, guardarLineaTiempo } from '@/services/partidoService';
+import { partidoRepository } from '@/data/repositories/partido-repository';
 import { usePartidoEnCursoStore } from '@/state/usePartidoEnCursoStore';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
@@ -77,6 +78,8 @@ export default function MatchScreen() {
   const penalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolverPenalRef = useRef<(eleccion: DireccionPenal | null) => void>(() => {});
   const reanudarRef = useRef<() => void>(() => {});
+  const partidoIdRef = useRef<number | null>(null);
+  const checkpointInicialHechoRef = useRef(false);
 
   const relojSv = useSharedValue(0);
 
@@ -133,9 +136,12 @@ export default function MatchScreen() {
         }
       }
 
-      // Transición 1T → descanso (una vez).
+      // Transición 1T → descanso (una vez) + checkpoint del 2T (PR2).
       if (t >= DURACION_1T && !descansoHechoRef.current) {
         descansoHechoRef.current = true;
+        if (partidoIdRef.current != null) {
+          void partidoRepository.guardarCheckpoint(partidoIdRef.current, 'entretiempo_o_segundo');
+        }
         pausar();
         setFase('descanso');
         faseRef.current = 'descanso';
@@ -191,6 +197,40 @@ export default function MatchScreen() {
       router.replace('/(main)');
     }
   }, [sesion]);
+
+  // PR2 checkpoint: al arrancar el replay se persiste la fase (1T); al reanudar
+  // desde el entretiempo se inicializa el reloj en el 2T con el resumen del 1T.
+  useEffect(() => {
+    if (!sesion || checkpointInicialHechoRef.current) return;
+    checkpointInicialHechoRef.current = true;
+    partidoIdRef.current = sesion.partido.id;
+    if (sesion.checkpointFase !== 'entretiempo_o_segundo') {
+      void partidoRepository.guardarCheckpoint(sesion.partido.id, 'primer_tiempo');
+      return;
+    }
+    // Reanudación del 2T: reloj al inicio del 2T, sin re-disparar el cruce.
+    relojRef.current = DURACION_1T;
+    relojSv.set(DURACION_1T);
+    descansoHechoRef.current = true;
+    minutoRef.current = 45;
+    const idx = sesion.lineaTiempo.filter((e) => minutoAOffsetMs(e.minuto) <= DURACION_1T).length;
+    indiceRef.current = idx;
+    const previos = sesion.lineaTiempo.slice(0, idx);
+    golesAnunciadosRef.current = contarGoles(previos, 'nosotros');
+    const aplicar = setTimeout(() => {
+      setMinuto(45);
+      setVisibles(previos);
+      setFase('descanso');
+      faseRef.current = 'descanso';
+      descansoTimeoutRef.current = setTimeout(() => {
+        relojRef.current = DURACION_1T;
+        setFase('jugando');
+        faseRef.current = 'jugando';
+        reanudarRef.current();
+      }, DESCANSO_MS);
+    }, 0);
+    return () => clearTimeout(aplicar);
+  }, [sesion, relojSv]);
 
   // Reloj: arranca con foco, pausa con blur/unmount.
   useFocusEffect(

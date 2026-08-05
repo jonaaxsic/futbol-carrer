@@ -36,6 +36,8 @@ import {
  *   persiste resultado + stats, ajusta OVR, suspende si corresponde.
  * - `jugarPartido`: wrapper compatible (flujo actual del dashboard): inicia,
  *   resuelve penales pendientes de forma automática y finaliza.
+ * - `reanudarPartido`: reconstruye la sesión desde la timeline persistida
+ *   (eventos_json) y el checkpoint_fase; NO re-simula, NO recarga energía (PR2).
  *
  * ENERGÍA (§4.2): jugar cuesta ENERGIA_PARTIDO barras. Además, si el jugador
  * se lesiona o es expulsado, se PIERDE el próximo partido (suspendido).
@@ -52,6 +54,9 @@ export interface ResultadoPartidoJugado {
   temporadaActualizada: Temporada;
 }
 
+/** Fase del checkpoint para reanudación (PR2). */
+export type FaseCheckpoint = 'primer_tiempo' | 'entretiempo_o_segundo' | null;
+
 /** Contenido de una sesión de partido iniciada (lo consume /match, PR3). */
 export interface PartidoEnCurso {
   partido: Partido;
@@ -59,6 +64,8 @@ export interface PartidoEnCurso {
   clubRival: Club;
   jugador: Player;
   lineaTiempo: EventoTimeline[];
+  /** Fase del checkpoint para saber desde dónde reanudar (PR2). */
+  checkpointFase?: FaseCheckpoint;
 }
 
 /** Bonus de OVR por rendimiento individual en el partido (máx +1). */
@@ -113,6 +120,43 @@ export async function iniciarPartido(
     clubRival,
     jugador: player,
     lineaTiempo: simulacion.lineaTiempo,
+    checkpointFase: 'primer_tiempo',
+  };
+}
+
+/**
+ * Reanuda un partido pausado reconstruyendo la sesión desde la timeline
+ * persistida (eventos_json) y el checkpoint_fase.
+ * NO re-simula, NO recarga energía (energía ya fue cobrada en iniciarPartido).
+ */
+export async function reanudarPartido(
+  player: Player,
+  temporada: Temporada,
+  partido: Partido,
+  clubRival: Club,
+  fase: FaseCheckpoint,
+): Promise<PartidoEnCurso> {
+  // Parsear la timeline persistida desde eventos_json
+  let lineaTiempo: EventoTimeline[] = [];
+  if (partido.eventosJson) {
+    try {
+      const data = JSON.parse(partido.eventosJson) as { lineaTiempo?: EventoTimeline[] };
+      lineaTiempo = data.lineaTiempo ?? [];
+    } catch {
+      lineaTiempo = [];
+    }
+  }
+
+  // Determinar checkpointFase para el reloj del replay
+  const checkpointFase = fase ?? partido.checkpointFase ?? null;
+
+  return {
+    partido,
+    temporada,
+    clubRival,
+    jugador: player,
+    lineaTiempo,
+    checkpointFase,
   };
 }
 
@@ -142,6 +186,9 @@ export async function finalizarPartido(
     simulacion.asistenciasJugador,
     eventosJson,
   );
+
+  // PR2: el partido terminó → se limpia el checkpoint (también en flujos headless).
+  await partidoRepository.limpiarCheckpoint(partido.id);
 
   await temporadaRepository.sumarStats(
     temporada.id,

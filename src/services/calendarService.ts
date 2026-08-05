@@ -60,3 +60,23 @@ export async function obtenerProximosPartidos(
 export async function obtenerCalendarioTemporada(temporadaId: number): Promise<Partido[]> {
   return partidoRepository.findByTemporada(temporadaId);
 }
+
+/**
+ * Partidos abandonados con checkpoint vencido → 3-0 (spec paused-match R6, PR2).
+ * Lazy e idempotente: solo toca fixtures con `checkpoint_fase` persistido y
+ * cuya fecha ya pasó; los marca como jugados (derrota 0-3) y limpia el
+ * checkpoint, de modo que el calendario nunca queda bloqueado.
+ */
+export async function resolverPendientesVencidos(temporadaId: number): Promise<void> {
+  const vencidos = await partidoRepository.findVencidosConCheckpoint(temporadaId, Date.now());
+  for (const partido of vencidos) {
+    await partidoRepository.marcarJugado(
+      partido.id,
+      '0-3',
+      0,
+      0,
+      JSON.stringify({ resuelto: '3-0' }),
+    );
+    await partidoRepository.limpiarCheckpoint(partido.id);
+  }
+}

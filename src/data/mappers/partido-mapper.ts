@@ -1,4 +1,4 @@
-import type { Partido } from '@/domain/entities/partido';
+import type { Partido, FaseCheckpoint } from '@/domain/entities/partido';
 
 /** Fila cruda de la tabla `partido`. */
 export interface PartidoRow {
@@ -14,6 +14,7 @@ export interface PartidoRow {
   goles: number;
   asistencias: number;
   eventos_json: string | null;
+  checkpoint_fase: string | null;
 }
 
 /** Mapper: fila SQLite → entidad Partido. */
@@ -31,5 +32,6 @@ export function filaToPartido(fila: PartidoRow): Partido {
     goles: fila.goles,
     asistencias: fila.asistencias,
     eventosJson: fila.eventos_json,
+    checkpointFase: (fila.checkpoint_fase as FaseCheckpoint) ?? null,
   };
 }
