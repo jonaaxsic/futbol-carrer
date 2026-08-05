@@ -160,6 +160,93 @@ const EVENTOS: readonly EventoNarrativo[] = [
       },
     ],
   },
+  {
+    id: 'pretemporada-exigir',
+    tipo: 'decision',
+    titulo: 'Pretemporada',
+    descripcion:
+      'El entrenador te pregunta cuánto querés exigirte en la pretemporada.',
+    opciones: [
+      {
+        id: 'maximo',
+        texto: 'Exigirme al máximo',
+        efectos: [
+          { etiqueta: 'Velocidad', direccion: 'up', ovrDelta: 1 },
+          { etiqueta: 'Resistencia', direccion: 'up' },
+        ],
+        resultado: 'La pretemporada dura pero efectiva. Llegás al primer partido en tu mejor momento.',
+      },
+      {
+        id: 'normal',
+        texto: 'Entrenar con normalidad',
+        efectos: [{ etiqueta: 'Resistencia', direccion: 'up' }],
+        resultado: 'Llegás en buena forma, sin lesionarte ni quedarte atrás.',
+      },
+      {
+        id: 'cuidarse',
+        texto: 'Cuidarme para no lesionarme',
+        efectos: [{ etiqueta: 'Riesgo de lesión', direccion: 'down' }],
+        resultado: 'Llegás sano al primer partido, aunque sin cambios notables.',
+      },
+    ],
+  },
+  {
+    id: 'vestuario-tension',
+    tipo: 'decision',
+    titulo: 'Tensión en el vestuario',
+    descripcion:
+      'Un compañero critica públicamente las decisiones del entrenador. Te preguntan tu opinión.',
+    opciones: [
+      {
+        id: 'apoyar-compañero',
+        texto: 'Apoyar al compañero',
+        efectos: [
+          { etiqueta: 'Relación DT', direccion: 'down' },
+          { etiqueta: 'Relación plantel', direccion: 'up' },
+        ],
+        resultado: 'Tu apoyo fortaleció tu vínculo con el compañero, pero el entrenador no quedó nada contento.',
+      },
+      {
+        id: 'apoyar-dt',
+        texto: 'Apoyar al entrenador',
+        efectos: [
+          { etiqueta: 'Relación DT', direccion: 'up' },
+          { etiqueta: 'Relación plantel', direccion: 'down' },
+        ],
+        resultado: 'El entrenador valoró tu postura. Tu posición en el equipo se fortaleció.',
+      },
+      {
+        id: 'no-opinar',
+        texto: 'No opinar',
+        efectos: [{ etiqueta: 'Rendimiento', direccion: 'neutral' }],
+        resultado: 'Mantuviste tu distancia. No ganaste ni perdiste aliados.',
+      },
+    ],
+  },
+  {
+    id: 'arbitraje-controversia',
+    tipo: 'decision',
+    titulo: 'Controversia arbitral',
+    descripcion:
+      'El árbitro marca un penal dudoso en tu contra. En la conferencia post-partido te preguntan sobre la decisión.',
+    opciones: [
+      {
+        id: 'criticar',
+        texto: 'Criticar la decisión',
+        efectos: [
+          { etiqueta: 'Sanción', direccion: 'up' },
+          { etiqueta: 'Relación árbitros', direccion: 'down' },
+        ],
+        resultado: 'La prensa te respalda, pero la liga te sanciona con una multa.',
+      },
+      {
+        id: 'aceptar',
+        texto: 'Aceptar la decisión',
+        efectos: [{ etiqueta: 'Madurez', direccion: 'up', ovrDelta: 1 }],
+        resultado: 'Tu actitud madura fue elogiada por el entrenador y la prensa.',
+      },
+    ],
+  },
 ];
 
 /** Probabilidad base de que ocurra un evento tras un partido. */
