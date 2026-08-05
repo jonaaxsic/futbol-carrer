@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { Platform, useWindowDimensions } from 'react-native';
 
-import { colors } from '@/presentation/theme';
+import { colors, spacing } from '@/presentation/theme';
 
 /**
- * Tab bar inferior de la carrera activa (wireframe: Inicio/Carrera/Club/Eventos/Perfil).
- * Nota: el tab "Club" muestra el CALENDARIO de temporada (según guía de pantallas #9).
- * Las pantallas overlay (entrenamiento, evento, trofeos, retiro) NO llevan tab bar.
+ * Tab bar inferior de la carrera activa.
+ * Responsive: web usa tab bar horizontal más ancha, mobile compacta.
  */
 export default function MainTabsLayout() {
+  const { width: screenWidth } = useWindowDimensions();
+  const isWide = screenWidth > 600;
+
   return (
     <Tabs
       screenOptions={{
@@ -18,32 +21,38 @@ export default function MainTabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          height: isWide ? 64 : 56,
+          paddingBottom: isWide ? spacing.sm : spacing.xs,
+          paddingTop: spacing.xs,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: isWide ? 13 : 11,
           fontWeight: '700',
           letterSpacing: 0.5,
+        },
+        tabBarIconStyle: {
+          marginBottom: isWide ? -2 : 0,
         },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={isWide ? size + 4 : size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="career"
         options={{
           title: 'Carrera',
-          tabBarIcon: ({ color, size }) => <Ionicons name="flag" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="flag" size={isWide ? size + 4 : size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
           title: 'Club',
-          tabBarIcon: ({ color, size }) => <Ionicons name="shield" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="shield" size={isWide ? size + 4 : size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -51,7 +60,7 @@ export default function MainTabsLayout() {
         options={{
           title: 'Eventos',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper" size={size} color={color} />
+            <Ionicons name="newspaper" size={isWide ? size + 4 : size} color={color} />
           ),
         }}
       />
@@ -59,10 +68,9 @@ export default function MainTabsLayout() {
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={isWide ? size + 4 : size} color={color} />,
         }}
       />
-      {/* Ocultar pantallas que no son tabs pero viven en (main)/ */}
       <Tabs.Screen name="club-oferta" options={{ href: null }} />
     </Tabs>
   );
