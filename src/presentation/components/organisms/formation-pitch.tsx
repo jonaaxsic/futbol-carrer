@@ -127,9 +127,11 @@ function LineasCancha() {
       {/* Áreas chicas */}
       <Rect x="35" y="1" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
       <Rect x="35" y="124" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Arcos de penal (semicírculos hacia cada arco) */}
-      <Path d="M31.7 21 A18.3 18.3 0 0 1 68.3 21" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      <Path d="M31.7 112 A18.3 18.3 0 0 0 68.3 112" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Arcos de penal (semicírculos FUERA de cada área, centrados en el punto de penalti) */}
+      {/* Arco superior (rival): punto de penalti ~y=14, radio ~12 → visible de y=21 a y=26 */}
+      <Path d="M35 21 A12 12 0 0 1 65 21" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
+      {/* Arco inferior (propio): punto de penalti ~y=119, radio ~12 → visible de y=107 a y=112 */}
+      <Path d="M35 112 A12 12 0 0 0 65 112" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
     </Svg>
   );
 }

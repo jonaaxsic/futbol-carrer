@@ -62,6 +62,8 @@ export default function MainTabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
         }}
       />
+      {/* Ocultar pantallas que no son tabs pero viven en (main)/ */}
+      <Tabs.Screen name="club-oferta" options={{ href: null }} />
     </Tabs>
   );
 }

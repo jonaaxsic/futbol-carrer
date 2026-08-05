@@ -68,7 +68,7 @@ export function SecondaryButton({ label, disabled, style, children, ...rest }: B
       disabled={disabled}
       style={({ pressed }) => [
         sharedStyles.base,
-        { backgroundColor: 'transparent', borderColor: colors.borderStrong },
+        { backgroundColor: 'transparent', borderColor: colors.border },
         !disabled && pressed && sharedStyles.pressed,
         disabled && sharedStyles.disabled,
         style,

@@ -58,6 +58,7 @@ export function ScreenContainer({
 
       {scrollable ? (
         <ScrollView
+          style={styles.scrollFlex}
           contentContainerStyle={[styles.content, style, contentContainerStyle]}
           showsVerticalScrollIndicator={false}>
           {children}
@@ -75,6 +76,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollFlex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -107,8 +111,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     gap: spacing.sm,
+    alignItems: 'center',
   },
 });
