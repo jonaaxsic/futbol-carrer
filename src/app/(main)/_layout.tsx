@@ -6,7 +6,7 @@ import { colors } from '@/presentation/theme';
 /**
  * Tab bar inferior de la carrera activa (wireframe: Inicio/Carrera/Club/Eventos/Perfil).
  * Nota: el tab "Club" muestra el CALENDARIO de temporada (según guía de pantallas #9).
- * Las pantallas overlay (entrenamiento, evento, penal, trofeos, retiro) NO llevan tab bar.
+ * Las pantallas overlay (entrenamiento, evento, trofeos, retiro) NO llevan tab bar.
  */
 export default function MainTabsLayout() {
   return (

@@ -74,10 +74,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 4 — Slice 3: Safe Area + Hairline (PR 4)
 
-- [ ] 4.1 `tokens.ts`: hairline `border '#2A2A2A'` → `'rgba(255,255,255,0.06)'` (central source); `screen-container` footer `borderTopColor`, `(main)/_layout.tsx` tab `borderTopColor`, card `borderColor` follow; keep `borderStrong`.
-- [ ] 4.2 Audit non-`ScreenContainer` screens (`match.tsx`, root `index.tsx`, overlays: 6-zone grid, resume banner, scorecard) → `SafeAreaView` edges / `useSafeAreaInsets()` with `paddingBottom: insets.bottom`, no fixed padding.
-- [ ] 4.3 Tab bar: JS `Tabs` auto-applies bottom inset — verify no custom/NativeTabs positioning issue; explicit insets only where a manual borrow exists.
-- [ ] 4.4 Verify PR4: `npx tsc --noEmit` + `npx expo lint` clean.
+- [x] 4.1 `tokens.ts`: hairline `border '#2A2A2A'` → `'rgba(255,255,255,0.06)'` (central source); `screen-container` footer `borderTopColor`, `(main)/_layout.tsx` tab `borderTopColor`, card `borderColor` follow; keep `borderStrong`.
+- [x] 4.2 Audit non-`ScreenContainer` screens (`match.tsx`, root `index.tsx`, overlays: 6-zone grid, resume banner, scorecard) → `SafeAreaView` edges / `useSafeAreaInsets()` with `paddingBottom: insets.bottom`, no fixed padding.
+- [x] 4.3 Tab bar: JS `Tabs` auto-applies bottom inset — verify no custom/NativeTabs positioning issue; explicit insets only where a manual borrow exists.
+- [x] 4.4 Verify PR4: `npx tsc --noEmit` + `npx expo lint` clean.
 
 ## Phase 5 — Slice 4: Club Identity (PR 5)
 

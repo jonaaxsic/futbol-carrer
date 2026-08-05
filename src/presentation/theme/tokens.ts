@@ -12,8 +12,8 @@ export const colors = {
   surface: '#141414',
   /** Superficies aún más elevadas (selects, hover/pressed) */
   surfaceRaised: '#1C1C1C',
-  /** Bordes sutiles grises */
-  border: '#2A2A2A',
+  /** Hairline: borde sutil blanco al 6% (contraste alto sobre #0D0D0D) */
+  border: 'rgba(255,255,255,0.06)',
   borderStrong: '#3A3A3A',
 
   /** Texto y acentos blancos */
