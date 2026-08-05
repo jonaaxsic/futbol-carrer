@@ -22,8 +22,6 @@ export interface OpcionEvento {
   efectos: EfectoEvento[];
   /** Descripción corta de lo que pasa al elegir (se muestra tras decidir). */
   resultado?: string;
-  /** Ruta interna a la que navegar tras resolver (ej. 'penalty'). */
-  navegarA?: string;
 }
 
 export interface EventoNarrativo {
@@ -162,28 +160,6 @@ const EVENTOS: readonly EventoNarrativo[] = [
       },
     ],
   },
-  {
-    id: 'penal-decision',
-    tipo: 'penal',
-    titulo: '¡Hay penal!',
-    descripcion:
-      'El árbitro marca penal a favor de tu equipo en el minuto final. El DT te da la pelota.',
-    opciones: [
-      {
-        id: 'patear',
-        texto: 'Patear yo mismo',
-        efectos: [{ etiqueta: 'Oportunidad', direccion: 'up' }],
-        resultado: 'Todo el estadio te mira. El destino se decide en tu pie (pantalla de penal).',
-        navegarA: 'penalty',
-      },
-      {
-        id: 'ceder',
-        texto: 'Dejar que lo patee un compañero',
-        efectos: [{ etiqueta: 'Oportunidad', direccion: 'neutral' }],
-        resultado: 'Cedés la responsabilidad. El compañero convierte y te lo agradece.',
-      },
-    ],
-  },
 ];
 
 /** Probabilidad base de que ocurra un evento tras un partido. */
@@ -223,20 +199,4 @@ export function elegirEvento(ctx: ContextoEvento): EventoNarrativo | null {
     if (roll <= 0) return c.e;
   }
   return candidatos[0]?.e ?? null;
-}
-
-/** Penal: el jugador patea y el arquero se lanza (probabilístico por OVR). */
-export interface PenalParams {
-  ovr: number;
-  posicion: string;
-  random?: () => number;
-}
-
-export function patearPenal(params: PenalParams): { gol: boolean; atajado: boolean } {
-  const rnd = params.random ?? Math.random;
-  // POR/DFC patean peor; delanteros mejor. Base 0.72 + OVR/200.
-  const penalidadPosicion = params.posicion === 'POR' || params.posicion === 'DFC' ? 0.1 : 0;
-  const probGol = Math.min(0.92, 0.72 + params.ovr / 200 - penalidadPosicion);
-  const gol = rnd() < probGol;
-  return { gol, atajado: !gol };
 }

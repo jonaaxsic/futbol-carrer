@@ -45,11 +45,6 @@ export default function EventScreen() {
       if (aplicado.ovrNuevo != null) {
         setPlayer({ ...player, ovr: aplicado.ovrNuevo });
       }
-      // Algunas opciones encadenan un sub-evento (ej. penal → /penalty).
-      if (opcion.navegarA === 'penalty') {
-        limpiar();
-        router.push('/penalty');
-      }
     } finally {
       setAplicando(false);
     }

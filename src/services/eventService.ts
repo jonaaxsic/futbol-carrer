@@ -3,7 +3,6 @@ import type {
   EventoNarrativo,
   OpcionEvento,
 } from '@/domain/rules/eventos';
-import { patearPenal } from '@/domain/rules/eventos';
 import { OVR_MAX } from '@/shared/constants/game';
 import { clampearOvr } from '@/domain/value-objects/ovr';
 
@@ -13,8 +12,7 @@ import { eventoLogRepository } from '@/data/repositories/evento-log-repository';
 /**
  * Casos de uso de EVENTS (Sprint 5, pantallas 11-12).
  * Aplica una decisión de evento al jugador: registra en `evento_log` y
- * materializa los efectos (OVR, etc.) vía repos. También resuelve el penal
- * usando la regla pura `patearPenal`.
+ * materializa los efectos (OVR, etc.) vía repos.
  */
 
 export interface OpcionAplicada {
@@ -58,32 +56,6 @@ export async function aplicarOpcionEvento(
     ovrAnterior: ovrDelta !== 0 ? player.ovr : null,
     ovrNuevo,
   };
-}
-
-export interface ResultadoPenalResuelto {
-  gol: boolean;
-  atajado: boolean;
-  mensaje: string;
-}
-
-/** Resuelve el sub-evento penal (pantalla 12) y lo registra. */
-export async function resolverPenal(
-  player: Player,
-  direccion: string,
-): Promise<ResultadoPenalResuelto> {
-  const resultado = patearPenal({ ovr: player.ovr, posicion: player.posicion });
-  const mensaje = resultado.gol
-    ? `¡GOL! Pateaste a la ${direccion} y venciste al arquero.`
-    : `¡Atajado! El arquero se lanzó a la ${direccion} y detuvo el disparo.`;
-
-  await eventoLogRepository.crear({
-    playerId: player.id,
-    tipo: 'penal',
-    descripcion: mensaje,
-    impactoJson: JSON.stringify({ gol: resultado.gol, direccion }),
-  });
-
-  return { gol: resultado.gol, atajado: resultado.atajado, mensaje };
 }
 
 export { OVR_MAX };

@@ -10,7 +10,7 @@ import { colors } from '@/presentation/theme';
  * Al montar arranca la persistencia (abre BD, migra y siembra clubes) —
  * fire-and-forget: el Splash espera con `useHydrateApp`.
  * Los grupos (auth), (onboarding) y (main) y las pantallas overlay
- * (training, penalty, event, trophies, retirement, settings, credits)
+ * (training, event, trophies, retirement, settings, credits)
  * se registran automáticamente por convención de archivos de expo-router.
  */
 const navigationTheme = {

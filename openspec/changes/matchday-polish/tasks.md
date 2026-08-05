@@ -66,11 +66,11 @@ Chain strategy: stacked-to-main
 
 ### 3c — Legacy Teardown (PR 3c, grep-first)
 
-- [ ] 3c.1 Grep-first: `grep -r penalty src/app`, `grep resolverPenal|patearPenal`; confirm no live routes before deleting.
-- [ ] 3c.2 Remove `navegarA:'penalty'` in `eventos.ts`, the `/penalty` push in `event.tsx`; delete `src/app/penalty.tsx`.
-- [ ] 3c.3 Drop `penal-decision` event + `eventService.resolverPenal`/`patearPenal`.
-- [ ] 3c.4 Regenerate typedRoutes; confirm `grep -r penalty src/app` clean.
-- [ ] 3c.5 Verify PR3c: `npx tsc --noEmit` + `npx expo lint` clean.
+- [x] 3c.1 Grep-first: `grep -r penalty src/app`, `grep resolverPenal|patearPenal`; confirm no live routes before deleting.
+- [x] 3c.2 Remove `navegarA:'penalty'` in `eventos.ts`, the `/penalty` push in `event.tsx`; delete `src/app/penalty.tsx`.
+- [x] 3c.3 Drop `penal-decision` event + `eventService.resolverPenal`/`patearPenal`.
+- [x] 3c.4 Regenerate typedRoutes; confirm `grep -r penalty src/app` clean.
+- [x] 3c.5 Verify PR3c: `npx tsc --noEmit` + `npx expo lint` clean.
 
 ## Phase 4 — Slice 3: Safe Area + Hairline (PR 4)
 
