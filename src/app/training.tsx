@@ -19,7 +19,7 @@ import { energiaActual, ENERGIA_ENTRENAMIENTO } from '@/services/energiaService'
 import { obtenerJugadorActivo } from '@/services/playerService';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { PrimaryButton } from '@/presentation/components/atoms/button';
+import { PrimaryButton, SecondaryButton } from '@/presentation/components/atoms/button';
 import { ScreenContainer } from '@/presentation/components/organisms/screen-container';
 import { colors, radius, spacing } from '@/presentation/theme';
 
@@ -166,6 +166,11 @@ export default function TrainingScreen() {
             <AppText variant="caption" color="textMuted">
               {TIPOS_ENTRENAMIENTO[pendiente.tipo].etiqueta} · no podés iniciar otro hasta terminar
             </AppText>
+            <SecondaryButton
+              label="Volver al dashboard"
+              onPress={() => router.replace('/(main)')}
+              style={styles.volverBtn}
+            />
           </View>
         ) : (
           <>
@@ -291,6 +296,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+  },
+  volverBtn: {
+    marginTop: spacing.md,
   },
   countdown: {
     fontSize: 44,

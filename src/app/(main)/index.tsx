@@ -26,6 +26,7 @@ import {
   proximaBarraEn,
   ENERGIA_PARTIDO,
 } from '@/services/energiaService';
+import { obtenerEntrenamientoPendiente, estaCompletado } from '@/services/trainingService';
 import { formatearFechaCorta } from '@/shared/utils/fechas';
 import { usePlayerStore } from '@/state/usePlayerStore';
 import { useCierreStore } from '@/state/useCierreStore';
@@ -69,6 +70,8 @@ export default function DashboardScreen() {
   >([]);
   // PR2: partido pausado (con checkpoint) → banner de reanudación.
   const [enCurso, setEnCurso] = useState<{ partido: Partido; clubRival: Club } | null>(null);
+  // §13: entrenamiento activo → deshabilita botón Jugar.
+  const [entrenando, setEntrenando] = useState(false);
   // Tick para re-renderizar la energía (regen por tiempo) sin timers de juego.
   const [, setTick] = useState(0);
 
@@ -107,6 +110,10 @@ export default function DashboardScreen() {
       } else {
         setEnCurso(null);
       }
+
+      // §13: verificar si hay entrenamiento activo.
+      const entrenamientoPendiente = await obtenerEntrenamientoPendiente(player.id);
+      setEntrenando(entrenamientoPendiente != null && !estaCompletado(entrenamientoPendiente));
 
       // Último partido jugado → tarjeta de resultado (al volver del /match).
       const jugados = calendario
@@ -387,16 +394,16 @@ export default function DashboardScreen() {
                     ) : (
                       <Pressable
                         onPress={() => jugar(p)}
-                        disabled={ocupado || !puedeJugarAhora}
+                        disabled={ocupado || !puedeJugarAhora || entrenando}
                         style={({ pressed }) => [
                           styles.chipAccion,
-                          !puedeJugarAhora && styles.chipBloqueado,
+                          (!puedeJugarAhora || entrenando) && styles.chipBloqueado,
                           pressed && styles.pressed,
                         ]}>
                         <AppText
                           variant="caption"
-                          color={puedeJugarAhora ? 'onAccent' : 'textMuted'}>
-                          Jugar
+                          color={puedeJugarAhora && !entrenando ? 'onAccent' : 'textMuted'}>
+                          {entrenando ? 'Entrenando' : 'Jugar'}
                         </AppText>
                       </Pressable>
                     )}
