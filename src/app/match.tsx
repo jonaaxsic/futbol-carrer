@@ -7,11 +7,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   resultadoDesdeLineaTiempo,
+  resolverInaccion,
   resolverPenalConEleccion,
-  resolverPenalInaccion,
-  type DireccionPenal,
+  resolverTiroLibreConEleccion,
   type EventoTimeline,
   type TipoEvento,
+  type ZonaDisparo,
 } from '@/domain/rules/partido';
 import {
   DURACION_1T,
@@ -34,11 +35,17 @@ const DESCANSO_MS = 2_500;
 
 type Fase = 'jugando' | 'descanso' | 'penal' | 'final';
 
-const DIRECCIONES: readonly DireccionPenal[] = ['izquierda', 'centro', 'derecha'];
+/** Zonas de la fila superior del grid (PR3a); el grid completo llega en PR3b. */
+const DIRECCIONES: readonly ZonaDisparo[] = [
+  'arriba-izquierda',
+  'arriba-centro',
+  'arriba-derecha',
+];
 
 const ICONO_EVENTO: Record<TipoEvento, keyof typeof Ionicons.glyphMap> = {
   gol: 'football',
   penal: 'trophy',
+  'tiro-libre-interactivo': 'arrow-up',
   falta: 'refresh',
   amarilla: 'warning',
   roja: 'close-circle',
@@ -76,7 +83,7 @@ export default function MatchScreen() {
   const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const descansoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const penalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const resolverPenalRef = useRef<(eleccion: DireccionPenal | null) => void>(() => {});
+  const resolverPenalRef = useRef<(eleccion: ZonaDisparo | null) => void>(() => {});
   const reanudarRef = useRef<() => void>(() => {});
   const partidoIdRef = useRef<number | null>(null);
   const checkpointInicialHechoRef = useRef(false);
@@ -121,9 +128,12 @@ export default function MatchScreen() {
         const nuevos = lineaTiempo.slice(0, idx);
         setVisibles(nuevos);
 
-        // Penal interactivo pendiente → pausa y prompt (≤1 por partido, R6).
+        // Situación interactiva pendiente → pausa y prompt (≤2 por partido, R6).
         const penal = nuevos.find(
-          (e) => e.tipo === 'penal' && e.penal?.interactivo && !e.penal.resultado,
+          (e) =>
+            (e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') &&
+            e.situacion?.interactivo &&
+            !e.situacion.resultado,
         );
         if (penal) {
           pausar();
@@ -165,16 +175,19 @@ export default function MatchScreen() {
 
   /** Aplica la nueva timeline resuelta, la persiste y reanuda el reloj. */
   const resolverPenal = useCallback(
-    (eleccion: DireccionPenal | null) => {
+    (eleccion: ZonaDisparo | null) => {
       if (penalTimeoutRef.current) {
         clearTimeout(penalTimeoutRef.current);
         penalTimeoutRef.current = null;
       }
       if (!sesion || !penalActivo) return;
+      const esTiroLibre = penalActivo.tipo === 'tiro-libre-interactivo';
       const nueva =
         eleccion == null
-          ? resolverPenalInaccion(lineaTiempo)
-          : resolverPenalConEleccion(lineaTiempo, penalActivo.minuto, eleccion);
+          ? resolverInaccion(lineaTiempo)
+          : esTiroLibre
+            ? resolverTiroLibreConEleccion(lineaTiempo, penalActivo.minuto, eleccion)
+            : resolverPenalConEleccion(lineaTiempo, penalActivo.minuto, eleccion);
       actualizarLineaTiempo(nueva);
       void guardarLineaTiempo(sesion.partido.id, nueva); // D1: sobrevive al fondo
       setPenalActivo(null);
@@ -275,7 +288,7 @@ export default function MatchScreen() {
     setGuardando(true);
     setError(null);
     try {
-      const resuelta = resolverPenalInaccion(lineaTiempo); // nunca debería haber pendientes aquí
+      const resuelta = resolverInaccion(lineaTiempo); // nunca debería haber pendientes aquí
       const resultado = await finalizarPartido(
         sesion.jugador,
         sesion.temporada,
@@ -475,20 +488,24 @@ function minutoDeReloj(ms: number): number {
   return 90;
 }
 
-/** Cuenta goles de un equipo en una subtimeline (goles + penales convertidos). */
+/** Cuenta goles de un equipo en una subtimeline (goles + situaciones convertidas). */
 function contarGoles(linea: EventoTimeline[], equipo: EventoTimeline['equipo']): number {
   return linea.filter(
     (e) =>
-      (e.tipo === 'gol' || (e.tipo === 'penal' && e.penal?.resultado === 'gol')) &&
+      (e.tipo === 'gol' ||
+        ((e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') &&
+          e.situacion?.resultado === 'gol')) &&
       e.equipo === equipo,
   ).length;
 }
 
-/** Goles (con penal convertido) de un equipo para el scorecard. */
+/** Goles (con situación convertida) de un equipo para el scorecard. */
 function golesDe(linea: EventoTimeline[], equipo: EventoTimeline['equipo']): EventoTimeline[] {
   return linea.filter(
     (e) =>
-      (e.tipo === 'gol' || (e.tipo === 'penal' && e.penal?.resultado === 'gol')) &&
+      (e.tipo === 'gol' ||
+        ((e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') &&
+          e.situacion?.resultado === 'gol')) &&
       e.equipo === equipo,
   );
 }

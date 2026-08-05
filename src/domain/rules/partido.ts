@@ -40,15 +40,57 @@ export interface SituacionPartido {
 }
 
 /** Tipos de evento de la timeline de replay (§ design D1). */
-export type TipoEvento = 'gol' | 'falta' | 'amarilla' | 'roja' | 'lesion' | 'penal';
+export type TipoEvento =
+  | 'gol'
+  | 'falta'
+  | 'amarilla'
+  | 'roja'
+  | 'lesion'
+  | 'penal'
+  | 'tiro-libre-interactivo';
 
-export interface PenalTimeline {
-  /** true → el replay PAUSA y pide input al usuario (≤1 por partido). */
+/** Zona de disparo del grid 3×2 (spec interactive-situations R1). */
+export type ZonaDisparo =
+  | 'arriba-izquierda'
+  | 'arriba-centro'
+  | 'arriba-derecha'
+  | 'abajo-izquierda'
+  | 'abajo-centro'
+  | 'abajo-derecha';
+
+/**
+ * Resultado de una situación interactiva (spec R1/R3).
+ * La spec literal enumera 4 valores; `rebote` lo exige la barrera del
+ * tiro libre (task 3a.1): un disparo a zona baja/centro cubierta por la
+ * barrera resuelve rebote, no 'afuera'.
+ */
+export type ResultadoSituacion = 'gol' | 'atajado' | 'palo' | 'afuera' | 'rebote';
+
+/** Zonas baja/centro (la barrera del tiro libre solo cubre esas filas). */
+const ZONAS_BARRERA: readonly ZonaDisparo[] = [
+  'arriba-centro',
+  'abajo-izquierda',
+  'abajo-centro',
+  'abajo-derecha',
+];
+
+export interface SituacionInteractiva {
+  /** true → el replay PAUSA y pide input al usuario (≤2 por partido). */
   interactivo: boolean;
-  /** Lado del arquero precomputado: el mini-juego decide gol si lo esquiva. */
-  ladoArquero?: 'izquierda' | 'centro' | 'derecha';
-  /** Resultado resuelto; pendiente (undefined) en el penal interactivo. */
-  resultado?: 'gol' | 'atajado' | 'fallado';
+  /** Zona que cubre el arquero (precomputada): gol si el disparo la esquiva. */
+  ladoArquero?: ZonaDisparo;
+  /**
+   * Zona de la barrera del tiro libre (precomputada, solo tiro-libre-interactivo):
+   * un disparo a esa zona (baja/centro) resuelve `rebote`.
+   */
+  ladoDefensor?: ZonaDisparo;
+  /**
+   * Resultado precomputado cuando el usuario elige la zona cubierta por el
+   * arquero (spec R1 scenario: 'atajado' | 'palo' | 'afuera'), determinista.
+   */
+  resultadoCubierto?: Exclude<ResultadoSituacion, 'gol' | 'rebote'>;
+  /** Resultado resuelto; pendiente (undefined) en la situación interactiva. */
+  resultado?: ResultadoSituacion;
 }
 
 export interface EventoTimeline {
@@ -62,7 +104,8 @@ export interface EventoTimeline {
   descripcion: string;
   /** true en goles de compañero con asistencia del protagonista. */
   asistenciaJugador?: boolean;
-  penal?: PenalTimeline;
+  /** Situación interactiva (penal o tiro libre). Eventos viejos sin el campo se leen como no interactivos. */
+  situacion?: SituacionInteractiva;
 }
 
 export interface ResultadoSimulacion {
@@ -123,10 +166,21 @@ const ASISTENCIAS_POR_POSICION: Record<string, number> = {
   POR: 0.05,
 };
 
-const LADOS_ARQUERO: ['izquierda', 'centro', 'derecha'] = [
-  'izquierda',
-  'centro',
-  'derecha',
+/** Las 6 zonas del grid (spec interactive-situations R1). */
+const ZONAS: readonly ZonaDisparo[] = [
+  'arriba-izquierda',
+  'arriba-centro',
+  'arriba-derecha',
+  'abajo-izquierda',
+  'abajo-centro',
+  'abajo-derecha',
+];
+
+/** Resultados posibles si el usuario elige la zona cubierta por el arquero. */
+const CUBIERTOS: readonly Exclude<ResultadoSituacion, 'gol' | 'rebote'>[] = [
+  'atajado',
+  'palo',
+  'afuera',
 ];
 
 /** Genera `cantidad` minutos únicos (1-90) usando el RNG del partido. */
@@ -145,11 +199,25 @@ function minutosUnicos(rnd: () => number, cantidad: number): number[] {
   return minutos.sort((a, b) => a - b);
 }
 
-/** Cuenta goles de un equipo en la timeline (goles + penales convertidos). */
+/** Minuto libre (1-90) no ocupado por otro evento (spec R7: situaciones en minutos únicos). */
+function minutoLibre(rnd: () => number, usados: Set<number>): number {
+  let minuto = 1 + Math.floor(rnd() * 90);
+  let intentos = 0;
+  while (usados.has(minuto) && intentos < 500) {
+    intentos += 1;
+    minuto = 1 + Math.floor(rnd() * 90);
+  }
+  usados.add(minuto);
+  return minuto;
+}
+
+/** Cuenta goles de un equipo en la timeline (goles + situaciones convertidas). */
 function contarGoles(lineaTiempo: EventoTimeline[], equipo: EventoTimeline['equipo']): number {
   return lineaTiempo.filter(
     (e) =>
-      (e.tipo === 'gol' || (e.tipo === 'penal' && e.penal?.resultado === 'gol')) &&
+      (e.tipo === 'gol' ||
+        ((e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') &&
+          e.situacion?.resultado === 'gol')) &&
       e.equipo === equipo,
   ).length;
 }
@@ -158,7 +226,7 @@ function contarGoles(lineaTiempo: EventoTimeline[], equipo: EventoTimeline['equi
 export function situacionesDesdeLineaTiempo(lineaTiempo: EventoTimeline[]): SituacionPartido[] {
   const situaciones: SituacionPartido[] = [];
   for (const e of lineaTiempo) {
-    if (e.tipo === 'penal') {
+    if (e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') {
       situaciones.push({ tipo: 'penal', minuto: e.minuto, descripcion: e.descripcion });
     } else if (e.tipo === 'roja') {
       situaciones.push({ tipo: 'expulsion', minuto: e.minuto, descripcion: e.descripcion });
@@ -286,19 +354,22 @@ export function simularPartido(params: SimularPartidoParams): ResultadoSimulacio
     });
   }
 
+  // ---- Situaciones interactivas (≤2 por partido: 1 penal + 1 TL, spec R7) ----
+  const minutosUsados = new Set(eventos.map((e) => e.minuto));
+
   // Penal INTERACTIVO del jugador (≤1 por partido, spec R6): queda PENDIENTE
-  // con ladoArquero precomputado; el mini juego resuelve gol/atajado/fallado.
-  const penalInteractivo = rnd() < 0.12;
-  if (penalInteractivo) {
+  // con ladoArquero precomputado; el mini juego resuelve gol/atajado/palo/afuera.
+  if (rnd() < 0.12) {
     eventos.push({
       tipo: 'penal',
-      minuto: 1 + Math.floor(rnd() * 90),
+      minuto: minutoLibre(rnd, minutosUsados),
       equipo: 'nosotros',
       jugador: 'jugador',
-      descripcion: '¡Penal para el equipo! Elegí la dirección del disparo.',
-      penal: {
+      descripcion: '¡Penal para el equipo! Elegí la zona del disparo.',
+      situacion: {
         interactivo: true,
-        ladoArquero: LADOS_ARQUERO[Math.floor(rnd() * 3)],
+        ladoArquero: ZONAS[Math.floor(rnd() * ZONAS.length)],
+        resultadoCubierto: CUBIERTOS[Math.floor(rnd() * CUBIERTOS.length)],
       },
     });
   }
@@ -308,13 +379,31 @@ export function simularPartido(params: SimularPartidoParams): ResultadoSimulacio
     const convertido = rnd() < 0.78;
     eventos.push({
       tipo: 'penal',
-      minuto: 1 + Math.floor(rnd() * 90),
+      minuto: minutoLibre(rnd, minutosUsados),
       equipo: 'rival',
       jugador: null,
       descripcion: convertido
         ? 'Penal convertido por el rival.'
         : 'Penal en contra atajado por el arquero.',
-      penal: { interactivo: false, resultado: convertido ? 'gol' : 'atajado' },
+      situacion: { interactivo: false, resultado: convertido ? 'gol' : 'atajado' },
+    });
+  }
+
+  // Tiro libre INTERACTIVO del jugador (≤1 por partido): la barrera cubre una
+  // zona baja/centro (rebote si la elige), el arquero otra (resultadoCubierto).
+  if (rnd() < 0.1) {
+    eventos.push({
+      tipo: 'tiro-libre-interactivo',
+      minuto: minutoLibre(rnd, minutosUsados),
+      equipo: 'nosotros',
+      jugador: 'jugador',
+      descripcion: '¡Tiro libre peligroso! Elegí la zona del disparo.',
+      situacion: {
+        interactivo: true,
+        ladoArquero: ZONAS[Math.floor(rnd() * ZONAS.length)],
+        ladoDefensor: ZONAS_BARRERA[Math.floor(rnd() * ZONAS_BARRERA.length)],
+        resultadoCubierto: CUBIERTOS[Math.floor(rnd() * CUBIERTOS.length)],
+      },
     });
   }
 
@@ -400,46 +489,101 @@ export const resultadoString = (r: ResultadoSimulacion): string =>
   `${r.golesFavor}-${r.golesContra}`;
 
 /**
- * Resuelve los penales interactivos PENDIENTES como fallados (spec R5,
- * inaction default): el wrapper headless `jugarPartido` los usa porque no
+ * Resuelve las situaciones interactivas PENDIENTES como falladas (spec R5,
+ * inaction default): el wrapper headless `jugarPartido` las usa porque no
  * hay input del usuario durante el replay.
  */
-export function resolverPenalInaccion(lineaTiempo: EventoTimeline[]): EventoTimeline[] {
-  return lineaTiempo.map((e) =>
-    e.tipo === 'penal' && e.penal?.interactivo && !e.penal.resultado
-      ? {
-          ...e,
-          penal: { ...e.penal, resultado: 'fallado' as const },
-          descripcion: 'Penal fallado: no se eligió dirección a tiempo.',
-        }
-      : e,
-  );
+export function resolverInaccion(lineaTiempo: EventoTimeline[]): EventoTimeline[] {
+  return lineaTiempo.map((e) => {
+    const s = e.situacion;
+    const interactiva = (e.tipo === 'penal' || e.tipo === 'tiro-libre-interactivo') && s?.interactivo;
+    if (!interactiva || s?.resultado) return e;
+    return {
+      ...e,
+      situacion: { ...s, resultado: 'afuera' as const },
+      descripcion:
+        e.tipo === 'penal'
+          ? 'Penal fallado: no se eligió zona a tiempo.'
+          : 'Tiro libre fallado: no se eligió zona a tiempo.',
+    };
+  });
 }
 
-/** Dirección posible en el mini-juego de penal (spec penalty R2/R3). */
-export type DireccionPenal = 'izquierda' | 'centro' | 'derecha';
-
 /**
- * Resuelve el penal interactivo del minuto dado con la elección del usuario
- * (spec penalty R2): gol solo si la dirección del disparo difiere del lado
- * precomputado del arquero; si coincide → atajado. Nunca re-simula el partido.
+ * Resuelve el penal interactivo del minuto dado con la zona elegida por el
+ * usuario (spec R2/R3): gol solo si la zona difiere de la del arquero; si
+ * coincide, se aplica `resultadoCubierto` precomputado. Nunca re-simula.
  */
 export function resolverPenalConEleccion(
   lineaTiempo: EventoTimeline[],
   minuto: number,
-  eleccion: DireccionPenal,
+  eleccion: ZonaDisparo,
 ): EventoTimeline[] {
   return lineaTiempo.map((e) => {
-    if (e.tipo !== 'penal' || e.minuto !== minuto || !e.penal?.interactivo || e.penal.resultado) {
+    if (e.tipo !== 'penal' || e.minuto !== minuto || !e.situacion?.interactivo || e.situacion.resultado) {
       return e;
     }
-    const gol = eleccion !== e.penal.ladoArquero;
+    const s = e.situacion;
+    const resultado: ResultadoSituacion = eleccion !== s.ladoArquero ? 'gol' : (s.resultadoCubierto ?? 'atajado');
     return {
       ...e,
-      descripcion: gol
-        ? '¡Penal convertido! Elegiste bien y venciste al arquero.'
-        : 'Penal atajado: el arquero adivinó tu dirección.',
-      penal: { ...e.penal, resultado: gol ? ('gol' as const) : ('atajado' as const) },
+      descripcion:
+        resultado === 'gol'
+          ? '¡Penal convertido! Elegiste bien y venciste al arquero.'
+          : resultado === 'atajado'
+            ? 'Penal atajado: el arquero adivinó tu zona.'
+            : resultado === 'palo'
+              ? 'Penal al palo: el arquero tocó justo el balón.'
+              : 'Penal afuera: el disparo se fue desviado.',
+      situacion: { ...s, resultado: resultado },
+    };
+  });
+}
+
+/**
+ * Resuelve el tiro libre interactivo del minuto dado con la zona elegida
+ * (spec R4): la barrera (zona baja/centro) devuelve `rebote` si la elige;
+ * la zona del arquero aplica `resultadoCubierto`; una zona alta libre → gol;
+ * zona baja/centro sin barrera → 'afuera'. Nunca re-simula el partido.
+ */
+export function resolverTiroLibreConEleccion(
+  lineaTiempo: EventoTimeline[],
+  minuto: number,
+  eleccion: ZonaDisparo,
+): EventoTimeline[] {
+  return lineaTiempo.map((e) => {
+    if (
+      e.tipo !== 'tiro-libre-interactivo' ||
+      e.minuto !== minuto ||
+      !e.situacion?.interactivo ||
+      e.situacion.resultado
+    ) {
+      return e;
+    }
+    const s = e.situacion;
+    let resultado: ResultadoSituacion;
+    if (eleccion === s.ladoDefensor) {
+      resultado = 'rebote'; // la barrera desvía el disparo
+    } else if (eleccion === s.ladoArquero) {
+      resultado = s.resultadoCubierto ?? 'atajado';
+    } else if (eleccion === 'arriba-izquierda' || eleccion === 'arriba-derecha') {
+      resultado = 'gol'; // esquina alta libre
+    } else {
+      resultado = 'afuera'; // zona baja/centro sin barrera
+    }
+    return {
+      ...e,
+      descripcion:
+        resultado === 'gol'
+          ? '¡Gol de tiro libre! Clavaste el balón en la escuadra.'
+          : resultado === 'rebote'
+            ? 'La barrera desvió el disparo.'
+            : resultado === 'atajado'
+              ? 'Tiro libre atajado por el arquero.'
+              : resultado === 'palo'
+                ? 'Tiro libre al palo.'
+                : 'Tiro libre afuera.',
+      situacion: { ...s, resultado: resultado },
     };
   });
 }

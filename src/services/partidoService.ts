@@ -9,7 +9,7 @@ import {
 } from '@/domain/rules/eventos';
 import {
   resultadoDesdeLineaTiempo,
-  resolverPenalInaccion,
+  resolverInaccion,
   simularPartido,
   type EventoTimeline,
   type ResultadoSimulacion,
@@ -275,7 +275,7 @@ export async function jugarPartido(
   const consumir = opciones.consumirEnergia ?? true;
 
   const enCurso = await iniciarPartido(player, temporada, partido, clubRival, { consumirEnergia: consumir });
-  const lineaResuelta = resolverPenalInaccion(enCurso.lineaTiempo);
+  const lineaResuelta = resolverInaccion(enCurso.lineaTiempo);
   const resultado = await finalizarPartido(
     enCurso.jugador,
     temporada,

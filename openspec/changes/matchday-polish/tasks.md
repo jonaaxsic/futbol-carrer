@@ -51,11 +51,11 @@ Chain strategy: stacked-to-main
 
 ### 3a — Domain (PR 3a)
 
-- [ ] 3a.1 `src/domain/rules/partido.ts`: generalize `PenalTimeline` → `SituacionInteractiva`; `ZonaDisparo` 6 zones; `ResultadoSituacion` docs 5-value union (`'gol'|'atajado'|'palo'|'afuera'|'rebote'`) vs the spec's literal 4-value enum — `rebote` required by the barrier; `EventoTimeline.penal?` → `situacion?` (optional, older events parse gracefully).
-- [ ] 3a.2 `partido.ts`: `TipoEvento` += `'tiro-libre-interactivo'`; precompute `ladoDefensor` zone per situation.
-- [ ] 3a.3 `partido.ts`: pure `resolverPenalConEleccion(linea,minuto,zona)` + `resolverTiroLibreConEleccion` (low/center + barrera → `rebote`, else zone-vs-gk); never re-simulate; `resolverInaccion` default for timeout (miss).
-- [ ] 3a.4 `simularPartido`: bound ≤2 interactive situations (1 pénal + 1 TL) at unique minutes, never same minute.
-- [ ] 3a.5 `partido.ts`: adopt `career.ts`-style pure helper naming consistency (file standardized `career.ts`, no `carrer.ts`).
+- [x] 3a.1 `src/domain/rules/partido.ts`: generalize `PenalTimeline` → `SituacionInteractiva`; `ZonaDisparo` 6 zones; `ResultadoSituacion` docs 5-value union (`'gol'|'atajado'|'palo'|'afuera'|'rebote'`) vs the spec's literal 4-value enum — `rebote` required by the barrier; `EventoTimeline.penal?` → `situacion?` (optional, older events parse gracefully).
+- [x] 3a.2 `partido.ts`: `TipoEvento` += `'tiro-libre-interactivo'`; precompute `ladoDefensor` zone per situation.
+- [x] 3a.3 `partido.ts`: pure `resolverPenalConEleccion(linea,minuto,zona)` + `resolverTiroLibreConEleccion` (low/center + barrera → `rebote`, else zone-vs-gk); never re-simulate; `resolverInaccion` default for timeout (miss).
+- [x] 3a.4 `simularPartido`: bound ≤2 interactive situations (1 pénal + 1 TL) at unique minutes, never same minute.
+- [x] 3a.5 `partido.ts`: adopt `career.ts`-style pure helper naming consistency (file standardized `career.ts`, no `carrer.ts`).
 
 ### 3b — UI + Audit (PR 3b)
 
