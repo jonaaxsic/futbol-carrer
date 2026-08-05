@@ -12,6 +12,8 @@ import {
   type DatosCierre,
   type TrofeoGanado,
 } from '@/domain/rules/temporada';
+import { aplicarDecliveEdad, calcularDeclivePorEdad } from '@/domain/rules/progresion';
+import type { PlayerStats } from '@/domain/entities/stats';
 import { checkRetirementConditions, type DecisionRetiro } from '@/domain/rules/retiro';
 import type { Country } from '@/shared/constants/game';
 import type { SeasonMode } from '@/shared/types';
@@ -225,15 +227,23 @@ export async function finalizarCierre(
     await playerRepository.setPosicion(player.id, decision.tipo === 'cambio' ? decision.posicion : player.posicion);
   }
 
-  // 5) Actualizar jugador: edad, OVR ajustado y temporada actual.
-  await playerRepository.updateOvr(player.id, ovrFin);
+  // 5) Actualizar jugador: edad, OVR ajustado, stats con declive y temporada actual.
+  const statsConDeclive = aplicarDecliveEdad(player.stats, edadNueva);
+  const values = Object.values(statsConDeclive).filter((v): v is number => v != null);
+  const ovrDeStats = values.length > 0
+    ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+    : ovrFin;
+
+  await playerRepository.updateOvr(player.id, ovrDeStats);
+  await playerRepository.updateStats(player.id, statsConDeclive);
   await playerRepository.setClub(player.id, clubFinal.id);
   await playerRepository.setTemporadaActual(player.id, player.temporadaActual + 1);
 
   const playerActualizado: Player = {
     ...player,
     edad: edadNueva,
-    ovr: ovrFin,
+    ovr: ovrDeStats,
+    stats: statsConDeclive,
     posicion:
       decision.tipo === 'cambio' && clubNuevo ? decision.posicion : player.posicion,
     clubId: clubFinal.id,

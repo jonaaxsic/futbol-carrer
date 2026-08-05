@@ -4,7 +4,7 @@ import { clampStat } from '@/domain/entities/stats';
 import { OVR_MAX, OVR_MIN } from '@/shared/constants/game';
 
 /**
- * Reglas de progresión de stats (§14 del plan).
+ * Reglas de progresión de stats (§14 + §15 declive).
  * Puro y testeable sin UI: calcula el delta de stats según tipo de
  * entrenamiento, posición, edad (pico 27-34, declive después de 34) y random.
  */
@@ -64,6 +64,35 @@ const edadAjuste = (edad: number): number => {
   if (edad <= 34) return 1.0; // plenitud
   return 0.6; // declive físico
 };
+
+/**
+ * Calcula el declive natural por edad (§15).
+ * Después de 34 años, las stats bajan gradualmente cada temporada.
+ * Retorna un delta negativo (o 0 si no hay declive).
+ */
+export function calcularDeclivePorEdad(edad: number): number {
+  if (edad <= 34) return 0;
+  // Después de 34: pierde 1-3 puntos por temporada
+  const exceso = edad - 34;
+  return -(1 + Math.floor(exceso / 2)); // 35→-1, 37→-2, 39→-3
+}
+
+/**
+ * Aplica el declive de edad a todas las stats del jugador.
+ * Retorna las nuevas stats clampadas.
+ */
+export function aplicarDecliveEdad(stats: PlayerStats, edad: number): PlayerStats {
+  const delta = calcularDeclivePorEdad(edad);
+  if (delta === 0) return stats;
+
+  const nuevasStats: PlayerStats = {};
+  for (const [stat, value] of Object.entries(stats)) {
+    if (value != null) {
+      nuevasStats[stat as StatName] = clampStat(value + delta);
+    }
+  }
+  return nuevasStats;
+}
 
 /**
  * Calcula el resultado de un entrenamiento: delta de stats específicas
