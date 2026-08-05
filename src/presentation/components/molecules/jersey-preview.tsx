@@ -10,9 +10,9 @@ import {
 import { AppText } from '@/presentation/components/atoms/app-text';
 
 /**
- * Molecule: camiseta de fútbol SVG simple.
- * Forma básica: torso + mangas + cuello.
- * Colores del país, nombre y número.
+ * Molecule: camiseta de fútbol SVG - vista ESPALDA.
+ * Forma anatómica: hombros, cintura, mangas.
+ * Nombre + número centrados.
  */
 export interface JerseyPreviewProps {
   nombre?: string;
@@ -22,20 +22,24 @@ export interface JerseyPreviewProps {
   colores?: ColoresNacionales;
 }
 
-/** Torso + mangas (forma simple) */
-const TORSO =
-  'M70 28 C56 28 48 36 45 46 L30 55 L25 75 L25 142 C25 152 38 158 55 158 L85 158 C102 158 115 152 115 142 L115 75 L110 55 L95 46 C92 36 84 28 70 28 Z';
+/** Espalda: torso con forma anatómica */
+const TORSO_BACK =
+  'M70 30 C55 30 46 38 43 48 L28 58 L22 78 L22 85 L26 87 L30 115 L30 145 C30 155 42 160 58 160 L82 160 C98 160 110 155 110 145 L110 115 L114 87 L118 85 L118 78 L112 58 L97 48 C94 38 85 30 70 30 Z';
 
-/** Cuello en V simple */
-const COLLAR = 'M54 25 L70 38 L86 25 L83 22 L70 32 L57 22 Z';
+/** Mangas (más anchas, estilo retro) */
+const SLEEVE_LEFT = 'M43 48 L28 58 L22 78 L26 80 L32 75 L40 65 C43 62 44 58 43 54 Z';
+const SLEEVE_RIGHT = 'M97 48 L112 58 L118 78 L114 80 L108 75 L100 65 C97 62 96 58 97 54 Z';
+
+/** Cuello redondo (vista espalda) */
+const COLLAR_BACK = 'M52 28 Q70 18 88 28 L86 32 Q70 24 54 32 Z';
 
 /** Franjas verticales */
 const FRANJAS: readonly { x: number; w: number }[] = [
-  { x: 30, w: 8 },
-  { x: 46, w: 8 },
-  { x: 62, w: 8 },
-  { x: 78, w: 8 },
-  { x: 94, w: 8 },
+  { x: 32, w: 7 },
+  { x: 46, w: 7 },
+  { x: 60, w: 7 },
+  { x: 74, w: 7 },
+  { x: 88, w: 7 },
 ];
 
 export function JerseyPreview({
@@ -51,34 +55,34 @@ export function JerseyPreview({
 
   return (
     <View style={{ width: tamaño, height: alto }}>
-      <Svg width={tamaño} height={alto} viewBox="0 0 140 160">
+      <Svg width={tamaño} height={alto} viewBox="0 0 140 165">
         <Defs>
           <ClipPath id="torso-clip">
-            <Path d={TORSO} />
+            <Path d={TORSO_BACK} />
           </ClipPath>
         </Defs>
 
-        {/* Mangas (secundario) */}
-        <Rect x="8" y="40" width="35" height="34" rx="12" fill={colores.secundario} transform="rotate(-16 25 57)" />
-        <Rect x="97" y="40" width="35" height="34" rx="12" fill={colores.secundario} transform="rotate(16 115 57)" />
+        {/* Mangas */}
+        <Path d={SLEEVE_LEFT} fill={colores.secundario} />
+        <Path d={SLEEVE_RIGHT} fill={colores.secundario} />
 
-        {/* Torso (primario) */}
-        <Path d={TORSO} fill={colores.primario} />
+        {/* Torso */}
+        <Path d={TORSO_BACK} fill={colores.primario} />
 
         {/* Patrón */}
         <G clipPath="url(#torso-clip)">
           {colores.patron === 'franjas' &&
             FRANJAS.map((f) => (
-              <Rect key={f.x} x={f.x} y="35" width={f.w} height="125" fill={colores.secundario} />
+              <Rect key={f.x} x={f.x} y="38" width={f.w} height="125" fill={colores.secundario} />
             ))}
           {colores.patron === 'bicolor' && (
-            <Rect x="30" y="35" width="40" height="125" fill={colores.secundario} />
+            <Rect x="32" y="38" width="38" height="125" fill={colores.secundario} />
           )}
-          <Rect x="30" y="150" width="80" height="10" fill={colores.secundario} />
+          <Rect x="32" y="153" width="76" height="12" fill={colores.secundario} />
         </G>
 
-        {/* Cuello */}
-        <Path d={COLLAR} fill={colores.secundario} />
+        {/* Cuello redondo (espalda) */}
+        <Path d={COLLAR_BACK} fill={colores.secundario} />
       </Svg>
 
       {/* Nombre + número */}
@@ -91,7 +95,7 @@ export function JerseyPreview({
           </AppText>
         </View>
         <View style={styles.numeroContainer}>
-          <AppText style={[styles.numero, { color: texto, fontSize: Math.max(32, tamaño * 0.35) }]}>
+          <AppText style={[styles.numero, { color: texto, fontSize: Math.max(36, tamaño * 0.38) }]}>
             {numero ?? '10'}
           </AppText>
         </View>
@@ -110,7 +114,7 @@ const styles = StyleSheet.create({
   },
   nombreContainer: {
     position: 'absolute',
-    top: '24%',
+    top: '22%',
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -121,7 +125,7 @@ const styles = StyleSheet.create({
   },
   numeroContainer: {
     position: 'absolute',
-    top: '44%',
+    top: '42%',
     left: 0,
     right: 0,
     alignItems: 'center',
