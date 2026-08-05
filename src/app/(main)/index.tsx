@@ -352,14 +352,19 @@ export default function DashboardScreen() {
               const esPrimero = p.id === primerPartido.id;
               return (
                 <View key={p.id} style={styles.partidoRow}>
-                  <View style={styles.partidoInfo}>
-                    <AppText variant="body" color={esPrimero ? 'textPrimary' : 'textMuted'}>
-                      {rival?.nombre ?? '—'}
-                    </AppText>
-                    <AppText variant="caption" color="textMuted">
-                      {formatearFechaCorta(p.fechaTs)} · {p.competencia} ·{' '}
-                      {p.local ? 'Local' : 'Visitante'}
-                    </AppText>
+                  <View style={styles.partidoEquipos}>
+                    <ClubCrest club={club} size={16} />
+                    <AppText variant="caption" color="textMuted">vs</AppText>
+                    <ClubCrest club={rival} size={16} />
+                    <View style={styles.partidoInfo}>
+                      <AppText variant="body" color={esPrimero ? 'textPrimary' : 'textMuted'}>
+                        {rival?.nombre ?? '—'}
+                      </AppText>
+                      <AppText variant="caption" color="textMuted">
+                        {formatearFechaCorta(p.fechaTs)} · {p.competencia} ·{' '}
+                        {p.local ? 'Local' : 'Visitante'}
+                      </AppText>
+                    </View>
                   </View>
                   <View style={styles.partidoAccion}>
                     {!esPrimero ? (
@@ -584,6 +589,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  partidoEquipos: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   partidoInfo: { flex: 1, gap: 2 },
   partidoAccion: {
