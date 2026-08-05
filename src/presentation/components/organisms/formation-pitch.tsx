@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ImageBackground, Pressable, StyleSheet, View } from 'react-native';
+import { ImageBackground, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,9 +11,12 @@ import type { Formacion, SlotFormacion } from '@/domain/value-objects/formacion'
 import { posicionEnFormacion } from '@/domain/value-objects/formacion';
 import type { Posicion } from '@/domain/value-objects/posicion';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { colors, radius } from '@/presentation/theme';
+import { colors, radius, spacing } from '@/presentation/theme';
 
 const canchaImg = require('@/assets/images/cancha.png');
+
+/** Ancho máximo de la cancha en web */
+const PITCH_MAX_WIDTH = 420;
 
 /**
  * Organismo: cancha táctica con imagen real de fondo.
@@ -23,7 +26,7 @@ const canchaImg = require('@/assets/images/cancha.png');
  * - Modo `ver` (sin onSeleccionar): once propio + opcional rival
  *   (flip vertical: top-down), destacando la posición del jugador.
  *
- * Coordenadas del slot: x ∈ [0,1] izquierda→derecha, y ∈ [0,1] propio arco→rival.
+ * Responsive: en web limita ancho máximo; en mobile usa % del viewport.
  */
 export interface FormationPitchProps {
   /** Once del equipo del jugador. */
@@ -104,6 +107,12 @@ export function FormationPitch({
   onSeleccionar,
 }: FormationPitchProps) {
   const modoSeleccionar = onSeleccionar != null;
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Calcular ancho responsive
+  const pitchWidth = Platform.OS === 'web'
+    ? Math.min(screenWidth - spacing.xl * 2, PITCH_MAX_WIDTH)
+    : screenWidth - spacing.xl * 2;
 
   // Posición efectiva (con fallback MCO→MC) dentro del once propio.
   const destacada = posicionJugador ? posicionEnFormacion(formacion, posicionJugador) : null;
@@ -133,7 +142,7 @@ export function FormationPitch({
   return (
     <ImageBackground
       source={canchaImg}
-      style={styles.pitch}
+      style={[styles.pitch, { width: pitchWidth, height: pitchWidth * 1.33 }]}
       imageStyle={styles.pitchImage}
       resizeMode="cover">
       {/* Rival (modo ver): arriba del once, invertido */}
@@ -168,10 +177,10 @@ export function FormationPitch({
 
 const styles = StyleSheet.create({
   pitch: {
-    aspectRatio: 0.75,
     borderRadius: radius.lg,
     overflow: 'hidden',
     position: 'relative',
+    alignSelf: 'center',
   },
   pitchImage: {
     borderRadius: radius.lg,

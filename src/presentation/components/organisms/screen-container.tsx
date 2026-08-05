@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/presentation/components/atoms/app-text';
 import { colors, radius, spacing } from '@/presentation/theme';
+
+/** Ancho máximo del contenido en web */
+const CONTENT_MAX_WIDTH = 480;
 
 type ScreenContainerProps = {
   children: ReactNode;
@@ -28,6 +31,7 @@ type ScreenContainerProps = {
  * Contenedor base de pantalla: fondo oscuro, safe area,
  * header opcional con volver (flecha) y footer opcional fijo.
  * Con `scrollable` el contenido va dentro de un ScrollView.
+ * Responsive: en web limita ancho máximo para evitar estiramiento.
  */
 export function ScreenContainer({
   children,
@@ -37,10 +41,17 @@ export function ScreenContainer({
   style,
   contentContainerStyle,
 }: ScreenContainerProps) {
+  const { width: screenWidth } = useWindowDimensions();
+
+  // Calcular ancho responsive para web
+  const maxWidthStyle: ViewStyle | undefined = Platform.OS === 'web'
+    ? { maxWidth: Math.min(screenWidth - spacing.md * 2, CONTENT_MAX_WIDTH), alignSelf: 'center' as const, width: '100%' as const }
+    : undefined;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {title != null && (
-        <View style={styles.header}>
+        <View style={[styles.header, maxWidthStyle]}>
           {title !== '' && (
             <Pressable
               onPress={() => router.back()}
@@ -59,15 +70,21 @@ export function ScreenContainer({
       {scrollable ? (
         <ScrollView
           style={styles.scrollFlex}
-          contentContainerStyle={[styles.content, style, contentContainerStyle]}
+          contentContainerStyle={[styles.content, maxWidthStyle, style, contentContainerStyle]}
           showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.content, style]}>{children}</View>
+        <View style={[styles.content, maxWidthStyle, style]}>
+          {children}
+        </View>
       )}
 
-      {footer != null && <View style={styles.footer}>{footer}</View>}
+      {footer != null && (
+        <View style={[styles.footer, maxWidthStyle]}>
+          {footer}
+        </View>
+      )}
     </SafeAreaView>
   );
 }

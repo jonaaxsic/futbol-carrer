@@ -157,7 +157,7 @@ export default function DashboardScreen() {
           <AppText variant="body" color="textSecondary">
             No hay una carrera activa. Volvé al menú y creá una.
           </AppText>
-          <PrimaryButton label="Ir al menú" onPress={() => router.replace('/menu')} />
+          <PrimaryButton label="Ir al inicio" onPress={() => router.replace('/')} />
         </View>
       </ScreenContainer>
     );
