@@ -1,23 +1,23 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import type { Formacion, SlotFormacion } from '@/domain/value-objects/formacion';
 import { posicionEnFormacion } from '@/domain/value-objects/formacion';
 import type { Posicion } from '@/domain/value-objects/posicion';
 import { AppText } from '@/presentation/components/atoms/app-text';
-import { colors, radius, spacing } from '@/presentation/theme';
+import { colors, radius } from '@/presentation/theme';
+
+const canchaImg = require('@/assets/images/cancha.png');
 
 /**
- * Organismo: cancha táctica estilo Copero (Sprint A, plan punto 4).
- * - Fondo SVG con líneas reales: mitad, círculo central, áreas grande y
- *   chica, arcos de penal; césped con franjas horizontales alternadas.
+ * Organismo: cancha táctica con imagen real de fondo.
+ * - Fondo: imagen top-down de cancha (cancha.png) con líneas reales.
  * - Modo `seleccionar` (cuando onSeleccionar existe): el once propio
  *   bottom-up, slots tocables en píldoras, la selección resaltada.
  * - Modo `ver` (sin onSeleccionar): once propio + opcional rival
@@ -36,9 +36,6 @@ export interface FormationPitchProps {
   seleccion?: Posicion | null;
   onSeleccionar?: (p: Posicion) => void;
 }
-
-/** Franjas horizontales del césped (alternan pitch / pitchAlt). */
-const FRANJAS_CESPED = 8;
 
 const marcaLeft = (x: number): `${number}%` => `${x * 100}%`;
 const marcaTop = (y: number): `${number}%` => `${(1 - y) * 100}%`;
@@ -99,43 +96,6 @@ function renderOnce({
   });
 }
 
-/** Líneas de campo SVG (viewBox 100x133, proporción 3:4 vertical). */
-function LineasCancha() {
-  return (
-    <Svg viewBox="0 0 100 133" style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Césped con franjas horizontales */}
-      {Array.from({ length: FRANJAS_CESPED }, (_, i) => (
-        <Rect
-          key={i}
-          x="0"
-          y={i * (133 / FRANJAS_CESPED)}
-          width="100"
-          height={133 / FRANJAS_CESPED}
-          fill={i % 2 === 0 ? colors.pitch : colors.pitchAlt}
-        />
-      ))}
-
-      {/* Línea perimetral */}
-      <Rect x="1" y="1" width="98" height="131" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Mitad de cancha */}
-      <Line x1="50" y1="1" x2="50" y2="132" stroke={colors.pitchLine} strokeWidth="1" />
-      {/* Círculo central */}
-      <Circle cx="50" cy="66.5" r="10" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Áreas grandes (arriba = arco rival) */}
-      <Rect x="25" y="1" width="50" height="20" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      <Rect x="25" y="112" width="50" height="20" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Áreas chicas */}
-      <Rect x="35" y="1" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      <Rect x="35" y="124" width="30" height="8" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Arcos de penal (semicírculos FUERA de cada área, centrados en el punto de penalti) */}
-      {/* Arco superior (rival): punto de penalti ~y=14, radio ~12 → visible de y=21 a y=26 */}
-      <Path d="M35 21 A12 12 0 0 1 65 21" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-      {/* Arco inferior (propio): punto de penalti ~y=119, radio ~12 → visible de y=107 a y=112 */}
-      <Path d="M35 112 A12 12 0 0 0 65 112" stroke={colors.pitchLine} strokeWidth="1" fill="none" />
-    </Svg>
-  );
-}
-
 export function FormationPitch({
   formacion,
   rival = null,
@@ -171,10 +131,11 @@ export function FormationPitch({
     : null;
 
   return (
-    <View style={styles.pitch}>
-      {/* Fondo + líneas SVG (Copero) */}
-      <LineasCancha />
-
+    <ImageBackground
+      source={canchaImg}
+      style={styles.pitch}
+      imageStyle={styles.pitchImage}
+      resizeMode="cover">
       {/* Rival (modo ver): arriba del once, invertido */}
       {rival && !modoSeleccionar && (
         <View style={StyleSheet.absoluteFill}>
@@ -201,19 +162,19 @@ export function FormationPitch({
           ]}
         />
       )}
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   pitch: {
     aspectRatio: 0.75,
-    backgroundColor: colors.pitch,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.pitchLine,
     overflow: 'hidden',
     position: 'relative',
+  },
+  pitchImage: {
+    borderRadius: radius.lg,
   },
   slot: {
     position: 'absolute',
